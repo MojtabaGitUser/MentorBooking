@@ -218,3 +218,29 @@ A successful cancel returns 200 with `status: "cancelled"`, `cancelledAt`, `canc
 | 500 | `CANCELLATION_FAILED` | Unexpected failure; nothing was changed, safe to retry |
 
 Run `npm test` for the boundary unit tests and `npm run test:cancellations` (also in `npm run test:integration`) for PostgreSQL boundary, attribution, concurrency and rollback tests. Rebuild images first so migration `0005` is included. See [mentee cancellation](docs/design.md#mentee-cancellation-us-12).
+
+### Mentor cancellation (US-13)
+
+```sh
+curl -X POST -H "X-User-Id: 00000000-0000-4000-8000-000000000002" -H "Content-Type: application/json" \
+  -d '{"reason":"Unwell"}' http://localhost:3001/mentor/sessions/<sessionId>/cancel
+```
+
+The owning mentor may cancel a `scheduled` or `in_progress` session at any time, including within 24 hours, after an early join or after the official start. The mentee always gets the session's credit back (`MENTOR_REFUND`). The body is optional; `reason` is 1–500 characters. The response is 200 with `status`, `cancelledAt`, `cancelledBy: "mentor"`, `previousStatus`, `alreadyCancelled`, `refund: {credits, creditType, lotId}` and `notification.eventKey` (`mentor-cancelled:<sessionId>`). Repeating it returns the recorded result with `alreadyCancelled: true`.
+
+Errors: 401/403 (not the session's mentor, or not a mentor), 404 `SESSION_NOT_FOUND`, 422 `INVALID_CANCELLATION_REQUEST`, 409 `SESSION_NOT_CANCELLABLE` when the session is completed, a no-show, or already cancelled by the mentee (`details.status`, `details.cancelledBy`), 500 `CANCELLATION_FAILED` with nothing changed.
+
+### Admin ledger and credit adjustments (US-13)
+
+```sh
+curl -H "X-User-Id: 00000000-0000-4000-8000-000000000005" "http://localhost:3001/admin/users/<userId>/ledger?limit=20"
+curl -X POST -H "X-User-Id: 00000000-0000-4000-8000-000000000005" -H "Content-Type: application/json" \
+  -d '{"delta":2,"reason":"Goodwill for outage","idempotencyKey":"adj-2026-11-08-001"}' \
+  http://localhost:3001/admin/users/<menteeId>/credits/adjust
+```
+
+The ledger view returns `user`, `balance` (mentees only; `null` for mentors and admins, who hold no credit), `items` and `nextCursor`. Items use the wallet history fields plus `adjustedBy` (the admin ID) for admin entries. Pagination is the wallet cursor (`limit` 1–100). Unknown users return 404 `TARGET_USER_NOT_FOUND`.
+
+An adjustment needs a nonzero integer `delta` (at most ±1000), a nonblank `reason` and an `idempotencyKey`; the acting admin is taken from authentication. A grant creates a NORMAL lot and one `ADMIN_GRANT`. A revoke debits spendable credit in the spend order (rollover by earliest expiry, then normal), one `ADMIN_REVOKE` per lot, and is rejected with 409 `INSUFFICIENT_CREDITS` if it exceeds spendable credit, so it never creates debt or drives a lot negative. New adjustments return 201 with a receipt (`adjustmentId`, `menteeId`, `adjustedBy`, `delta`, `reason`, `idempotencyKey`, `createdAt`, `entries`); an identical retry returns 200 with the same receipt, and reusing the key with any other target, admin, delta or reason returns 409 `IDEMPOTENCY_CONFLICT`. Validation failures return 422 `INVALID_ADJUSTMENT`, and a non-mentee target returns 422 `TARGET_NOT_MENTEE`. Only admins can use these routes.
+
+Run `npm test` for the policy and validation unit tests and `npm run test:mentor-admin` (also in `npm run test:integration`) for PostgreSQL concurrency, idempotency, rollback and authorization tests.
