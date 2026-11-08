@@ -115,3 +115,14 @@ Run `npm test` for HMAC unit tests and `npm run test:payments` for CLI, concurre
 With Compose running, execute `npm run credits:expire` from the repository root. This performs one expiry pass and prints the number of lots journaled. It is safe to rerun after interruption or alongside another pass. The wallet excludes expired credit immediately, including before this command runs. Only unspent rollover credit expires; prior allocations and future session reservations remain in place.
 
 Run `npm test` for selection policy unit tests and `npm run test:wallet` for real PostgreSQL tests of expiry boundaries, debit/expiry races, rollback and reservation attribution. See the [integration contract](docs/design.md#rollover-selection-and-expiry) for the transaction and clock requirements.
+
+### Mentor availability (US-05)
+
+Use the seeded mentor's `X-User-Id` with the [scheduling OpenAPI contract and examples](docs/mentor-schedule.openapi.json). GET lists the signed-in mentor's records, POST creates, PATCH /:id changes only supplied fields, and DELETE /:id returns 204. Missing credentials return 401; the wrong role or owner receives 403.
+
+- POST `/mentor/availability` with `{"weekday":1,"startLocal":"09:00","endLocal":"12:00"}`. ISO weekday 1 is Monday. Times must be ordered 24-hour HH:mm values. Active rules may touch but cannot overlap on one weekday (422). Reads include the current IANA timezone from the mentor's user record. Changing that zone preserves the stored local hours.
+- POST `/mentor/blockouts` with `{"startsAt":"2030-10-26T23:30:00+01:00","endsAt":"2030-10-28T00:00:00Z","reason":"Away"}`. Both instants require an explicit offset or Z and a positive interval. PostgreSQL stores timestamptz and the API returns UTC with microsecond precision. PATCH accepts either or both boundaries and a nullable reason. Overlapping exclusions are allowed. A conflict with a non-cancelled session returns 409 and the affected session IDs. Failed edits preserve the original record.
+
+US-06 should expand active weekly rules in the mentor's zone for the requested dates, then exclude slots intersecting any half-open blockout interval. For booking, take the mentee lock first, then lock the mentor_profiles row FOR UPDATE and recheck availability in the same READ COMMITTED transaction as the booking. Schedule edits already take this mentor lock.
+
+Run `npm test` for input validation and `npm run test:availability` against the rebuilt Compose stack for the HTTP, PostgreSQL and concurrency cases. The latter also runs in `npm run test:integration`.
