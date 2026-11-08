@@ -51,3 +51,23 @@ Unique provider identifiers protect payment and event identity. The inbox stores
 Wallet totals and the first history page use one read-only repeatable-read snapshot. The default cutoff is the PostgreSQL transaction clock; an internal `asOf` can reproduce a historical cutoff. Positive normal lot remainders and unexpired rollover remainders are reported separately. A rollover stops contributing at its exact expiry. Negative lot remainders are shown as signed debt; spendable credit is the positive portion of normal plus rollover plus debt. This accounts for reversals and compensations through net lot balances.
 
 History orders by database timestamp and UUID descending. A cursor identifies its immutable anchor in the current user's ledger; PostgreSQL compares both columns at native precision. Newer inserts appear on refresh. Separate page requests read the current committed history. Expiry and cancellation never erase earlier movements.
+
+### Fake payment confirmation
+
+The authenticated mentee orders the four-credit MVP pack. PostgreSQL holds the pending quantity and purchaser. The webhook authenticates its sender with a constant-time HMAC-SHA256 comparison over the original, uncompressed request bytes before JSON decoding. The provider payment identifier resolves the order. A signed pack quantity must match the stored quantity when supplied.
+
+### Durable receipt and financial processing
+
+Migration 0003 adds an attempt counter and a partial index for pending receipts. The runtime can update processing metadata only. The first autocommit statement stores the signed body, provider event and payment IDs, type and receipt time after order and quantity validation. The provider timestamp is preserved in the signed body. PostgreSQL's unique provider event ID serializes competing inserts. Reuse requires byte-for-byte equality, including whitespace. An invalid signature cannot create a receipt.
+
+A second transaction locks the inbox row, then the payment, then the mentee when an accounting effect is required. The transaction commits new lot/ledger entries, the terminal or successful payment transition, and the processed timestamp together. An HTTP acknowledgment follows commit. A processed receipt bypasses financial effects. For a fresh receipt, the payment lock, terminal state and unique ledger keys protect business effects across different event IDs.
+
+| Current state | Success | Refund |
+|---|---|---|
+| PENDING | Grant once and become SUCCEEDED; a known pending refund takes precedence | Become REFUNDED with zero grants |
+| SUCCEEDED | Acknowledge existing entitlement | Reverse the original grant and become REFUNDED |
+| REFUNDED | Acknowledge terminal state | Acknowledge terminal state |
+
+Under the mentee lock, sum all deltas on the lot identified by the original purchase grant. Reverse the positive remainder up to the grant quantity; record the rest as DEBT against that same lot. Skip zero-value entries. The keys `purchase-reversal:<paymentId>` and `purchase-debt:<paymentId>` identify the compensations. Existing US-08 grants use the same purchase-grant key and can be refunded after upgrade. The wallet already nets negative lot balances against spendable funds.
+
+Before receipt commit a provider retry is required. After receipt commit a pending row is discoverable, even if processing never started. An exception before financial commit rolls back all effects. A separate conditional metadata update records a sanitized error only while still pending. Attempts count completed processing or recorded failures; a hard termination can leave the counter unchanged. Serialization failures and deadlocks get at most three transaction attempts per invocation. Redelivery or the bounded recovery command can resume pending work after restart. If a response is lost after commit, the next delivery observes the processed marker.

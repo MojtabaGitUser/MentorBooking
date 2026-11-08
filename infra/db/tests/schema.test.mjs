@@ -66,7 +66,7 @@ function rejected(query, code, constraint) {
 test('clean migration creates domain objects; reapplying preserves migration history', async () => {
   const history = 'SELECT * FROM schema_migrations ORDER BY name';
   const original = (await app.query(history)).rows;
-  assert.deepEqual(original.map(row => row.name), ['0001_baseline.sql', '0002_domain_schema.sql']);
+  assert.deepEqual(original.map(row => row.name), ['0001_baseline.sql', '0002_domain_schema.sql', '0003_payment_inbox_recovery.sql']);
   migrate();
   assert.deepEqual((await app.query(history)).rows, original);
   const names = ['users','mentor_profiles','weekly_availability','availability_blockouts','sessions',

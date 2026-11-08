@@ -14,6 +14,10 @@ services:
           head -c 32 /dev/urandom | base64 > /runtime/password.tmp
           mv /runtime/password.tmp /runtime/password
         fi
+        if [ ! -s /runtime/webhook-key ]; then
+          head -c 32 /dev/urandom | base64 > /runtime/webhook-key.tmp
+          mv /runtime/webhook-key.tmp /runtime/webhook-key
+        fi
     volumes:
       - db-secret:/secrets
       - runtime-secret:/runtime
@@ -64,6 +68,8 @@ services:
         condition: service_completed_successfully
     environment:
       DEMO_AUTH_ENABLED: ${DEMO_AUTH_ENABLED:-false}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      WEBHOOK_SECRET_FILE: /runtime/webhook-key
       PORT: 3001
       PGHOST: db
       PGDATABASE: mentor_booking

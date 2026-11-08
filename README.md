@@ -61,7 +61,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-`npm run dev` builds and starts the stack in the foreground. Re-run it after editing sources. Docker reads optional overrides from a root `.env`; [.env.example](.env.example) lists supported settings. The default setup generates its own local database password. The webhook secret is reserved for a later story.
+`npm run dev` builds and starts the stack in the foreground. Re-run it after editing sources. Docker reads optional overrides from a root `.env`; [.env.example](.env.example) lists supported settings. Compose generates separate local secrets for PostgreSQL and webhook signing.
 
 See [bootstrap architecture](docs/bootstrap.md) for migration and networking conventions.
 
@@ -83,3 +83,29 @@ A freshly seeded wallet returns:
 The transactions endpoint returns the same page structure as `history`. Each item includes its ID, kind, signed delta, source IDs, lot type and expiry, reason, idempotency key and UTC timestamp. Pass the returned `nextCursor` unchanged as `cursor` to continue. Limits range from 1 to 100 (default 20); invalid, unknown and foreign cursors return `400 INVALID_PAGE`. A null cursor in a response marks the last page.
 
 Run `npm test` for unit tests and `npm run test:wallet` for wallet integration tests on the bundled PostgreSQL server. The latter creates a disposable database, applies the existing migrations and uses the application's restricted login. The full `npm run test:integration` suite includes these checks.
+
+## Credit pack purchases
+
+The MVP offers one pack of four credits. Start the local Compose stack with demo authentication enabled and run seed. Create a pending order and inspect the wallet from PowerShell.
+
+```powershell
+$api = 'http://127.0.0.1:3001'
+$headers = @{ 'X-User-Id' = '00000000-0000-4000-8000-000000000003' }
+$order = Invoke-RestMethod "$api/payments/purchases" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"packCredits":4}'
+$order
+Invoke-RestMethod "$api/wallet/me" -Headers $headers
+npm run payment:simulate -- --payment $order.providerPaymentId --event succeeded
+Invoke-RestMethod "$api/wallet/me" -Headers $headers
+```
+
+The purchase returns HTTP 201 with `paymentId`, `providerPaymentId`, `status: PENDING` and `packCredits: 4`. Use the **providerPaymentId** for the simulator. It posts to `POST /webhooks/fake-payments` over the Compose network. The first success returns HTTP 200 and `{"status":"SUCCEEDED","duplicate":false}`. Further successes return `duplicate:true`. The wallet increases by four only once.
+
+The CLI signs the exact UTF-8 event body containing `eventId`, `paymentId`, `type` and `occurredAt` with HMAC-SHA256. It sends `X-Webhook-Signature: sha256=<hex>` and prints the HTTP response. Compose provisions a local key automatically. Set `WEBHOOK_SECRET` to override it. For host-side simulation set the same secret and `PAYMENT_API_URL=http://localhost:3001`, then run `node apps/api/scripts/fake-provider.mjs --payment <providerPaymentId> --event succeeded`.
+
+To simulate a full refund run `npm run payment:simulate -- --payment $order.providerPaymentId --event refunded`. The first refund returns HTTP 200 with `status: REFUNDED`. A refund before success closes the order without a grant. A refund after success reverses unspent credits from that purchase and records previously spent credits as signed debt. For example, spending one of four credits before the refund produces PAYMENT_REVERSAL -3 and DEBT -1. Use the wallet and transactions endpoints to inspect both entries.
+
+Each CLI invocation creates a fresh provider event ID. To retry an identical delivery, send the same signed bytes and event ID. A processed replay returns the current payment status and `duplicate:true`. A different ID for an already satisfied transition is also acknowledged without another grant or reversal. Reusing an ID with different signed bytes returns HTTP 409 `EVENT_ID_CONFLICT`.
+
+A verified receipt survives a crash before financial processing. Redelivery resumes it. To recover without waiting for the provider, run `npm run payment:recover` with the stack up, including after restarting the API. The command starts a fresh process and examines up to 100 pending events, least-attempted first. It reports examined/failed counts and exits nonzero if any failed. Repeat for additional batches or after resolving a transient error. An empty batch reports zero examined.
+
+Run `npm test` for HMAC unit tests and `npm run test:payments` for CLI, concurrency and rollback tests on disposable PostgreSQL.
