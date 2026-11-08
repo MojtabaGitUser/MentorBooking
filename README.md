@@ -65,6 +65,13 @@ npm run test:e2e
 
 See [bootstrap architecture](docs/bootstrap.md) for migration and networking conventions.
 
+### Dependency security
+
+`npm audit --omit=dev` reports no vulnerabilities in runtime dependencies.
+
+- **multer override.** `@nestjs/platform-express@11.2.8` (the last NestJS 11 release) pins `multer@2.4.0`, which is affected by [GHSA-q7qp-rjg7-q26m](https://github.com/advisories/GHSA-q7qp-rjg7-q26m) (high, denial of service). The root `overrides` entry replaces it with the patched `multer@2.5.0` for that exact NestJS version only. 2.5.0 is a compatible minor release with the same API and dependencies; NestJS 12 ships it upstream. Remove the override when upgrading `@nestjs/platform-express`. The API currently exposes no multipart routes.
+- **Accepted dev-only finding.** `npm audit` still reports [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) (moderate, 10 entries for one root cause) in `minimatch@10.2.6`. Only ESLint and typescript-eslint use it, and they match glob patterns from this repository's own `eslint.config.mjs`. The fix exists only in `minimatch@11`, outside the range declared by the latest ESLint (10.14.0). Forcing it via an override was tested but deferred because it is an unsupported major-version change. Exposure is low: the code runs only when linting and is never executed by the API or web servers. Revisit plan: when `eslint`, `@eslint/config-array` and `@typescript-eslint/typescript-estree` all officially accept a patched `minimatch` (>= 11.0.1), upgrade them with a normal compatible update, confirm `npm audit` is clean and lint output is unchanged. Do not run `npm audit fix --force`: it downgrades ESLint to 9.x.
+
 ## Mentee wallet
 
 With demo authentication enabled, use a seeded mentee's UUID. Both read endpoints take the wallet owner from the authenticated user. Example requests for the Vancouver account:
