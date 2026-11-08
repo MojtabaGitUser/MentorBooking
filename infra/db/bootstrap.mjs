@@ -37,12 +37,10 @@ try {
       await db.query('INSERT INTO schema_migrations (name) VALUES ($1)', [name]);
     }
   } else {
-    // Domain accounts arrive in US-03. For now seed verifies the bootstrap baseline.
-    const baseline = await db.query("SELECT 1 FROM schema_migrations WHERE name = '0001_baseline.sql'");
-    if (!baseline.rowCount) throw Error('Run migrations before seed');
+    await db.query(await readFile(new URL('./seed.sql', import.meta.url), 'utf8'));
   }
   await db.query('COMMIT');
-  console.log(mode === 'seed' ? 'Seed ready: baseline verified; no domain fixtures yet.' : 'Migrations complete.');
+  console.log(mode === 'seed' ? 'Demo accounts and mentor profiles seeded.' : 'Migrations complete.');
 } catch (error) {
   await db.query('ROLLBACK');
   throw error;

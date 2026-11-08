@@ -3,10 +3,13 @@ import { Pool } from 'pg';
 import type { HealthReport } from '@mentor/shared';
 import { version } from '../package.json';
 
+import { Public } from './auth/access';
+
 @Controller()
 export class HealthController {
   constructor(@Inject(Pool) private readonly pool: Pool) {}
 
+  @Public()
   @Get('health')
   async health(): Promise<HealthReport> {
     try {
