@@ -63,6 +63,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
+      DEMO_AUTH_ENABLED: ${DEMO_AUTH_ENABLED:-false}
       PORT: 3001
       PGHOST: db
       PGDATABASE: mentor_booking

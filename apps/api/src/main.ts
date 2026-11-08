@@ -1,25 +1,6 @@
 import 'reflect-metadata';
-import { Module, OnApplicationShutdown } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { Pool } from 'pg';
-import { connectionOptions } from '../../../infra/db/config.cjs';
-import { HealthController } from './health.controller';
-
-@Module({
-  controllers: [HealthController],
-  providers: [{
-    provide: Pool,
-    useFactory: () => new Pool({
-      ...connectionOptions(),
-      connectionTimeoutMillis: 2000,
-      query_timeout: 2000,
-    }).on('error', (error: Error) => console.error('PostgreSQL pool error', error.message)),
-  }],
-})
-class ApiModule implements OnApplicationShutdown {
-  constructor(private readonly pool: Pool) {}
-  async onApplicationShutdown() { await this.pool.end(); }
-}
+import { ApiModule } from './api.module';
 
 async function start() {
   const app = await NestFactory.create(ApiModule);
