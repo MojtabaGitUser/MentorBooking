@@ -16,9 +16,12 @@ import { PaymentsService } from './payments/payments.service';
 
 import { RolloverService } from './wallet/rollover.service';
 
+import { ScheduleController } from './mentor/schedule.controller';
+import { ScheduleService } from './mentor/schedule.service';
+
 @Module({
-  controllers: [HealthController, MeController, WalletController, PaymentsController],
-  providers: [RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
+  controllers: [ScheduleController, HealthController, MeController, WalletController, PaymentsController],
+  providers: [ScheduleService, RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
     provide: Pool,
     useFactory: () => new Pool({
       ...connectionOptions(),
