@@ -5,17 +5,19 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test test/health.test.mjs test/wallet.test.mjs test/payments.test.mjs test/schedule.test.mjs"
+    "test": "npm run build && node --test test/health.test.mjs test/wallet.test.mjs test/payments.test.mjs test/schedule.test.mjs test/slots.test.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11",
     "@nestjs/core": "^11",
     "@nestjs/platform-express": "^11",
+    "luxon": "^3.7.2",
     "pg": "^8",
     "reflect-metadata": "^0.2",
     "rxjs": "^7"
   },
   "devDependencies": {
+    "@types/luxon": "^3.7.6",
     "@types/pg": "^8"
   }
 }

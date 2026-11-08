@@ -160,3 +160,66 @@ test('09:00–12:00 rule includes six half-hours; a 10:00–11:00 exclusion cove
     return instant<Date.parse(exclusion.startsAt) || instant>=Date.parse(exclusion.endsAt);
   }),['09:00','09:30','11:00','11:30']);
 });
+
+test('slot preview filters persisted microsecond exclusions and sessions in a read-only snapshot', async () => {
+  const id = randomUUID();
+  await pool.query("INSERT INTO users (id,role,display_name,timezone) VALUES ($1,'mentor','Slot fixture','Asia/Kolkata')",[id]);
+  await pool.query('INSERT INTO mentor_profiles (mentor_id) VALUES ($1)',[id]);
+  const date = '2099-01-05';
+  const weekday = new Date(date+'T00:00:00Z').getUTCDay() || 7;
+  const path = '/mentors/'+id+'/slots?from='+date+'&to='+date;
+  const preview = async () => {
+    const response = await request('GET',path,undefined,mentee);
+    assert.equal(response.status,200,JSON.stringify(response.data));
+    return response.data;
+  };
+  assert.deepEqual((await preview()).slots,[]);
+  assert.equal((await request('POST',weekly,{weekday,startLocal:'09:01',endLocal:'13:10'},id)).status,201);
+  await pool.query("INSERT INTO weekly_availability (mentor_id,weekday,start_local,end_local,is_active) VALUES ($1,$2,'14:00','15:00',false)",[id,weekday]);
+  const initial = await preview();
+  assert.equal(initial.viewerTimezone,'America/Vancouver');
+  assert.equal(initial.mentorTimezone,'Asia/Kolkata');
+  assert.equal(initial.slots.length,7);
+  assert.equal(initial.slots[0].localStartsAt.slice(0,10),'2099-01-04');
+  assert.equal(Date.parse(initial.slots[0].localStartsAt),Date.parse('2099-01-05T04:00:00Z'));
+  // Midnight-spanning exclusion ends exactly at 10:00; a one-microsecond overlap blocks 10:30.
+  for (const [startsAt,endsAt] of [
+    ['2099-01-04T23:00+05:30','2099-01-05T10:00+05:30'],
+    ['2099-01-05T10:59:59.999999+05:30','2099-01-05T11:00+05:30'],
+  ]) assert.equal((await request('POST',blocks,{startsAt,endsAt},id)).status,201);
+  const { rows:[session] } = await pool.query(`INSERT INTO sessions (mentor_id,mentee_id,starts_at,ends_at)
+    VALUES ($1,$2,'2099-01-05T11:15+05:30','2099-01-05T11:45+05:30') RETURNING id`,[id,mentee]);
+  async function snapshot() {
+    const values = [];
+    for (const table of ['weekly_availability','availability_blockouts','sessions']) {
+      values.push((await pool.query('SELECT to_jsonb(t) AS record FROM '+table+' t WHERE mentor_id=$1 ORDER BY id',[id])).rows);
+    }
+    return values;
+  }
+  const before = await snapshot();
+  const filtered = await preview();
+  assert.deepEqual(filtered.slots.map(s=>s.startsAt),['2099-01-05T04:30:00Z','2099-01-05T06:30:00Z','2099-01-05T07:00:00Z']);
+  const override = await request('GET',path+'&timezone=Asia/Kolkata',undefined,mentee);
+  assert.equal(override.data.slots[0].localStartsAt,'2099-01-05T10:00:00+05:30');
+  assert.deepEqual(await snapshot(),before);
+  await pool.query("UPDATE sessions SET status='cancelled',cancelled_at=now(),cancellation_actor=$1 WHERE id=$2",[id,session.id]);
+  assert.equal((await preview()).slots.length,5);
+  const pastDay = '2000-01-03';
+  assert.equal(new Date(pastDay+'T00:00:00Z').getUTCDay(),weekday);
+  const past = await request('GET','/mentors/'+id+'/slots?from='+pastDay+'&to='+pastDay,undefined,mentee);
+  assert.deepEqual(past.data.slots,[]);
+});
+
+test('slot endpoint enforces mentee access and validates mentor, range and viewer zone', async () => {
+  const path = '/mentors/'+mentor+'/slots';
+  const query = '?from=2099-01-05&to=2099-01-05';
+  for (const [user,status] of [[null,401],[mentor,403],[admin,403]]) {
+    assert.equal((await request('GET',path+query,undefined,user)).status,status);
+  }
+  for (const bad of [randomUUID(),mentee,'invalid']) {
+    assert.equal((await request('GET','/mentors/'+bad+'/slots'+query,undefined,mentee)).status,404);
+  }
+  for (const bad of ['',query+'&timezone=Mars/Olympus',query+'&from=2099-01-05','?from=2099-01-06&to=2099-01-05']) {
+    assert.equal((await request('GET',path+bad,undefined,mentee)).status,422);
+  }
+});
