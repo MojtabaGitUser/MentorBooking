@@ -67,12 +67,12 @@ test('clean migration creates domain objects; reapplying preserves migration his
   const history = 'SELECT * FROM schema_migrations ORDER BY name';
   const original = (await app.query(history)).rows;
   assert.deepEqual(original.map(row => row.name), ['0001_baseline.sql', '0002_domain_schema.sql', '0003_payment_inbox_recovery.sql',
-    '0004_booking_requests.sql']);
+    '0004_booking_requests.sql', '0005_session_refund_lot.sql']);
   migrate();
   assert.deepEqual((await app.query(history)).rows, original);
   const names = ['users','mentor_profiles','weekly_availability','availability_blockouts','sessions',
     'payments','payment_events','credit_adjustments','credit_lots','ledger_entries','session_credit_allocations',
-    'outbox_events','booking_requests','sessions_mentor_overlap','sessions_mentee_overlap','lots_owner_expiry','outbox_pending'];
+    'outbox_events','booking_requests','sessions_mentor_overlap','sessions_mentee_overlap','lots_owner_expiry','outbox_pending','credit_lots_one_refund_lot_per_session'];
   const { rows } = await app.query('SELECT name FROM unnest($1::text[]) name WHERE to_regclass(name) IS NULL', [names]);
   assert.deepEqual(rows, []);
   assert.equal((await app.query("SELECT 1 FROM pg_extension WHERE extname='btree_gist'")).rowCount, 1);
