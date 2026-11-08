@@ -189,3 +189,32 @@ curl -X POST http://localhost:3001/sessions \
 | 500 | `BOOKING_FAILED` | Unexpected failure; nothing was committed, safe to retry with the same key |
 
 The slot preview is only a snapshot. Booking rechecks the slot, blockouts, sessions and credit inside its transaction. See [atomic booking](docs/design.md#atomic-booking-us-11). Run `npm test` for request, alignment and DST unit tests and `npm run test:bookings` (also part of `npm run test:integration`) for the PostgreSQL concurrency, idempotency and rollback tests. Rebuild the images first (`docker compose up -d --build --wait`) so the migrate container contains migration `0004` and the new tests.
+
+### Cancel a session as the mentee (US-12)
+
+Cancellation is two steps: show the outcome, then confirm exactly that outcome.
+
+```sh
+curl -H "X-User-Id: 00000000-0000-4000-8000-000000000003" http://localhost:3001/sessions/<sessionId>/cancellation-preview
+curl -X POST -H "X-User-Id: 00000000-0000-4000-8000-000000000003" -H "Content-Type: application/json" \
+  -d '{"expectedRefundableCredits":1}' http://localhost:3001/sessions/<sessionId>/cancel
+```
+
+The preview returns `sessionId`, `status`, `eligible`, `refundableCredits` (0 or 1), `refundType` (`FULL` or `NONE`), `reason`, `startsAt`, `cutoffAt` (start − 24h) and `serverNow`, all UTC. Send its `refundableCredits` as `expectedRefundableCredits`.
+
+- More than 24 hours before the start (`now < cutoffAt`): one credit back (`MORE_THAN_24_HOURS_BEFORE_START`).
+- Exactly 24 hours or less, but before the start: cancellable without refund (`WITHIN_24_HOURS_OF_START`).
+- At or after the official start: not cancellable (`SESSION_STARTED`), even if the background job has not yet moved the session out of `scheduled`. An early join does not affect eligibility before the start.
+
+A successful cancel returns 200 with `status: "cancelled"`, `cancelledAt`, `cancelledBy`, `alreadyCancelled: false`, `reason` and `refund: {credits, creditType, lotId}`. Repeating it returns 200 with `alreadyCancelled: true` and the recorded refund; no second refund is possible.
+
+| Status | `code` | When |
+|---|---|---|
+| 401 / 403 | `USER_NOT_FOUND` / `FORBIDDEN` | No identity; caller is not a mentee or not the session's mentee |
+| 404 | `SESSION_NOT_FOUND` | Unknown session ID |
+| 422 | `INVALID_CANCELLATION_REQUEST` | Body is not exactly `{"expectedRefundableCredits":0|1}` |
+| 409 | `CANCELLATION_POLICY_CHANGED` | The refund outcome differs from the confirmed one (e.g. the 24h cutoff passed). Nothing changed; `details.currentPreview` holds the new outcome to confirm again |
+| 409 | `SESSION_NOT_CANCELLABLE` | Started, in progress or finished; `details.currentPreview` explains why |
+| 500 | `CANCELLATION_FAILED` | Unexpected failure; nothing was changed, safe to retry |
+
+Run `npm test` for the boundary unit tests and `npm run test:cancellations` (also in `npm run test:integration`) for PostgreSQL boundary, attribution, concurrency and rollback tests. Rebuild images first so migration `0005` is included. See [mentee cancellation](docs/design.md#mentee-cancellation-us-12).

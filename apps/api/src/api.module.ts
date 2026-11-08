@@ -24,10 +24,12 @@ import { SlotsService } from './mentor/slots.service';
 
 import { BookingController } from './sessions/booking.controller';
 import { BookingService } from './sessions/booking.service';
+import { CancellationController } from './sessions/cancellation.controller';
+import { CancellationService } from './sessions/cancellation.service';
 
 @Module({
-  controllers: [BookingController, SlotsController, ScheduleController, HealthController, MeController, WalletController, PaymentsController],
-  providers: [BookingService, SlotsService, ScheduleService, RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
+  controllers: [CancellationController, BookingController, SlotsController, ScheduleController, HealthController, MeController, WalletController, PaymentsController],
+  providers: [CancellationService, BookingService, SlotsService, ScheduleService, RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
     provide: Pool,
     useFactory: () => new Pool({
       ...connectionOptions(),
