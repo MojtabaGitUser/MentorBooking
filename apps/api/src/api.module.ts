@@ -7,9 +7,13 @@ import { HealthController } from './health.controller';
 import { DemoAuthGuard } from './auth/demo-auth.guard';
 import { MeController } from './me.controller';
 
+import { LedgerService } from './wallet/ledger.service';
+import { WalletService } from './wallet/wallet.service';
+import { WalletController } from './wallet/wallet.controller';
+
 @Module({
-  controllers: [HealthController, MeController],
-  providers: [{ provide: APP_GUARD, useClass: DemoAuthGuard }, {
+  controllers: [HealthController, MeController, WalletController],
+  providers: [LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
     provide: Pool,
     useFactory: () => new Pool({
       ...connectionOptions(),

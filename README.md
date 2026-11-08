@@ -64,3 +64,22 @@ npm run test:e2e
 `npm run dev` builds and starts the stack in the foreground. Re-run it after editing sources. Docker reads optional overrides from a root `.env`; [.env.example](.env.example) lists supported settings. The default setup generates its own local database password. The webhook secret is reserved for a later story.
 
 See [bootstrap architecture](docs/bootstrap.md) for migration and networking conventions.
+
+## Mentee wallet
+
+With demo authentication enabled, use a seeded mentee's UUID. Both read endpoints take the wallet owner from the authenticated user. Example requests for the Vancouver account:
+
+```sh
+curl -H "X-User-Id: 00000000-0000-4000-8000-000000000003" http://localhost:3001/wallet/me
+curl -H "X-User-Id: 00000000-0000-4000-8000-000000000003" "http://localhost:3001/wallet/me/transactions?limit=20"
+```
+
+A freshly seeded wallet returns:
+
+```json
+{"normal":0,"rollover":0,"debt":0,"totalSpendable":0,"rolloverLots":[],"history":{"items":[],"nextCursor":null}}
+```
+
+The transactions endpoint returns the same page structure as `history`. Each item includes its ID, kind, signed delta, source IDs, lot type and expiry, reason, idempotency key and UTC timestamp. Pass the returned `nextCursor` unchanged as `cursor` to continue. Limits range from 1 to 100 (default 20); invalid, unknown and foreign cursors return `400 INVALID_PAGE`. A null cursor in a response marks the last page.
+
+Run `npm test` for unit tests and `npm run test:wallet` for wallet integration tests on the bundled PostgreSQL server. The latter creates a disposable database, applies the existing migrations and uses the application's restricted login. The full `npm run test:integration` suite includes these checks.

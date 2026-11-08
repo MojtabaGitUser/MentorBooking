@@ -12,8 +12,9 @@
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test -w @mentor/api",
-    "test:integration": "node --test infra/tests/health.integration.mjs && npm run test:schema && npm run test:auth",
+    "test:integration": "node --test infra/tests/health.integration.mjs && npm run test:schema && npm run test:auth && npm run test:wallet",
     "test:auth": "docker compose exec -T api node --test apps/api/test/auth.integration.mjs",
+    "test:wallet": "docker compose run --rm -T --no-deps migrate node --test apps/api/test/wallet.integration.mjs",
     "test:schema": "docker compose run --rm -T --no-deps migrate node --test infra/db/tests/schema.test.mjs",
     "test:e2e": "playwright test",
     "seed": "docker compose exec -T api node infra/db/bootstrap.mjs seed"
