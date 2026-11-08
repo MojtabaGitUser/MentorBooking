@@ -126,3 +126,24 @@ Use the seeded mentor's `X-User-Id` with the [scheduling OpenAPI contract and ex
 US-06 should expand active weekly rules in the mentor's zone for the requested dates, then exclude slots intersecting any half-open blockout interval. For booking, take the mentee lock first, then lock the mentor_profiles row FOR UPDATE and recheck availability in the same READ COMMITTED transaction as the booking. Schedule edits already take this mentor lock.
 
 Run `npm test` for input validation and `npm run test:availability` against the rebuilt Compose stack for the HTTP, PostgreSQL and concurrency cases. The latter also runs in `npm run test:integration`.
+
+### Preview mentor slots (US-06)
+
+A signed-in mentee can call `GET /mentors/:mentorId/slots?from=2099-01-05&to=2099-01-05&timezone=America/Los_Angeles`. Both dates are inclusive in the mentor's calendar. Results cover up to the first 31 days. Omit `timezone` to use the viewing mentee's saved IANA zone.
+
+For a Kolkata mentor available from 09:00 to 09:30 that Monday, the response is:
+
+```json
+{
+  "mentorTimezone": "Asia/Kolkata",
+  "viewerTimezone": "America/Los_Angeles",
+  "slots": [{
+    "startsAt": "2099-01-05T03:30:00Z",
+    "endsAt": "2099-01-05T04:00:00Z",
+    "localStartsAt": "2099-01-04T19:30:00-08:00",
+    "localEndsAt": "2099-01-04T20:00:00-08:00"
+  }]
+}
+```
+
+Invalid dates, reversed ranges and invalid viewer zones return 422. An unknown mentor returns 404. Empty availability returns 200 with an empty slots array. Run `npm test` for DST/calendar tests and `npm run test:availability` for PostgreSQL and endpoint tests. See the [slot preview design](docs/design.md#slot-preview).
