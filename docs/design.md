@@ -87,3 +87,25 @@ Weekly rules are interpreted in the mentor's current IANA zone. The generator en
 Each half-open slot [start, end) must fit entirely inside one active weekly rule. If the UTC offset changes inside the interval, each constant-offset segment must fit. The read-only repeatable-read snapshot filters starts strictly after the database clock at snapshot transaction start and removes intersections with mentor blockouts or any non-cancelled mentor session. PostgreSQL compares absolute instants with full stored precision. A blockout ending at the slot start leaves the slot available. Results are sorted by UTC start and include viewer-local ISO values with offsets.
 
 US-11 must acquire the mentee and mentor locks in the project's order and revalidate the selected UTC instant, current availability, blockouts, session conflicts and credit inside its booking transaction. A successful preview does not reserve time.
+
+### Atomic booking (US-11)
+
+`POST /sessions` runs one READ COMMITTED transaction per attempt:
+
+1. Lock the mentee row (`LedgerService.lockMentee`, `FOR UPDATE`).
+2. If an `Idempotency-Key` is present, look it up in `booking_requests` and replay or reject.
+3. Lock the mentor profile row (`FOR UPDATE`) and read the mentor's current timezone.
+4. Check alignment on the mentor's wall clock, then read the authoritative clock (`clock_timestamp()`) after both locks are held.
+5. Recheck the start against active weekly rules with `isOfferedStart`, which reuses the US-06 generator, then check half-open blockouts, the mentor's non-cancelled sessions and the mentee's non-cancelled sessions.
+6. Select a lot with `RolloverService.selectSpendableLot` at that clock: rollover by earliest expiry, then normal, with outstanding debt counted.
+7. Insert the session, its allocation, the `BOOKING_DEBIT` (-1, key `booking-debit:<sessionId>`) and the idempotency row, then commit.
+
+Any error rolls back all of them, so a session never exists without its allocation and debit, and a debit never exists without its session.
+
+Lock order is always mentee, then mentor. Schedule edits lock only the mentor; payment processing locks inbox, payment, then mentee; no path locks a mentor before a mentee, so there is no lock cycle. The mentee lock serializes spending, so two bookings cannot both take the last credit. The mentor lock serializes bookings against each other and against availability or blockout edits, so a booking either sees a committed blockout and fails, or commits first and makes the blockout edit fail with `BLOCKOUT_CONFLICT`. Inserting a session also takes FK `KEY SHARE` locks on the mentor profile and mentee rows, which conflict with these `FOR UPDATE` locks, so even a writer that skips the application locks is ordered before or after a booking rather than interleaved with it. The partial GiST exclusion constraints stay the final guard: a `23P01` on `sessions_mentor_overlap` maps to `SLOT_UNAVAILABLE` and on `sessions_mentee_overlap` to `SESSION_OVERLAP`, after a full rollback. Deadlock and serialization failures get at most three attempts; the tests assert that the documented order needs exactly one.
+
+Booking accepts exactly the instants the preview offers. In the spring gap no local label maps to a missing time. In the autumn fold only the earlier occurrence of a repeated label is bookable (01:30 BST, not 01:30 GMT), and the preview never shows the later one. The weekday is the mentor's local weekday even when the UTC date differs. Alignment is to :00/:30 of the mentor's clock, which matters for +05:45 zones.
+
+`booking_requests (mentee_id, idempotency_key) PRIMARY KEY` references the session, so a key exists only for a committed booking. Concurrent retries are serialized by the mentee lock; the second sees the committed row and replays it. The request fingerprint is the referenced session's mentor and start. The allocation keeps the exact funding lot, which US-12 needs for refunds.
+
+Known limitations: one credit and 30 minutes per session; no maximum booking horizon (the specification defines none; only a preview request is limited to 31 days); no booking confirmation or reminder notifications yet (US-15 will scan scheduled sessions); a replay reports the session's current status rather than a stored response snapshot.

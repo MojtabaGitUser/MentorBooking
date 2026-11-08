@@ -154,3 +154,38 @@ For a Kolkata mentor available from 09:00 to 09:30 that Monday, the response is:
 ```
 
 Invalid dates, reversed ranges and invalid viewer zones return 422. An unknown mentor returns 404. Empty availability returns 200 with an empty slots array. Run `npm test` for DST/calendar tests and `npm run test:availability` for PostgreSQL and endpoint tests. See the [slot preview design](docs/design.md#slot-preview).
+
+### Book a session (US-11)
+
+A signed-in mentee books one 30-minute slot for one credit. The mentee is always the authenticated user; the body never names one.
+
+```sh
+curl -X POST http://localhost:3001/sessions \
+  -H "X-User-Id: 00000000-0000-4000-8000-000000000003" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 6f1c2d9e-booking-attempt" \
+  -d '{"mentorId":"00000000-0000-4000-8000-000000000002","startsAt":"2099-01-05T03:30:00Z"}'
+```
+
+`startsAt` is an ISO-8601 instant with `Z` or an explicit offset (`2099-01-05T09:00:00+05:30` is the same slot). The server derives the 30-minute end and the cost. A new booking returns HTTP 201:
+
+```json
+{"sessionId":"…","mentorId":"00000000-0000-4000-8000-000000000002","status":"scheduled",
+ "spentCreditType":"NORMAL","startsAt":"2099-01-05T03:30:00Z","endsAt":"2099-01-05T04:00:00Z"}
+```
+
+`Idempotency-Key` is optional (1–128 visible ASCII characters, scoped to the mentee). Create one per intended booking and reuse it on retries. A retry with the same key, mentor and instant returns HTTP 200 with the original booking and its current status, without another debit. The same key with a different mentor or start returns 409 `IDEMPOTENCY_CONFLICT`. A failed attempt stores no key, so the same key can be retried after fixing the cause.
+
+| Status | `code` | When |
+|---|---|---|
+| 401 | `USER_NOT_FOUND` | No or unknown `X-User-Id` |
+| 403 | `FORBIDDEN` | Caller is not a mentee |
+| 404 | `MENTOR_NOT_FOUND` | Unknown mentor ID |
+| 422 | `INVALID_BOOKING_REQUEST` | Malformed body, instant without offset, extra fields, bad key |
+| 422 | `INVALID_SLOT` | Not on :00/:30 (and zero seconds) of the mentor's wall clock |
+| 409 | `SLOT_UNAVAILABLE` | `details.reason`: `IN_PAST`, `OUTSIDE_AVAILABILITY`, `BLOCKED` or `BOOKED`. Message: "This time slot is no longer available. Please select another slot." |
+| 409 | `SESSION_OVERLAP` | The mentee already has an overlapping non-cancelled session with any mentor |
+| 409 | `INSUFFICIENT_CREDITS` | Spendable credit below one, after expiry and outstanding debt |
+| 409 | `IDEMPOTENCY_CONFLICT` | Key reused for a different booking |
+| 500 | `BOOKING_FAILED` | Unexpected failure; nothing was committed, safe to retry with the same key |
+
+The slot preview is only a snapshot. Booking rechecks the slot, blockouts, sessions and credit inside its transaction. See [atomic booking](docs/design.md#atomic-booking-us-11). Run `npm test` for request, alignment and DST unit tests and `npm run test:bookings` (also part of `npm run test:integration`) for the PostgreSQL concurrency, idempotency and rollback tests. Rebuild the images first (`docker compose up -d --build --wait`) so the migrate container contains migration `0004` and the new tests.
