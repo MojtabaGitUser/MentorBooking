@@ -62,8 +62,11 @@ export class LedgerService {
     // Composite FKs check the owner of each linked source. Also match originating
     // grants/reversals to their precise funding lot (one mentee can own several).
     const inserted = await tx.query<LedgerEntry>(`INSERT INTO ledger_entries AS e
-      (mentee_id,lot_id,kind,delta,session_id,payment_id,adjustment_id,reason,idempotency_key)
-      SELECT $1::uuid,$2::uuid,$3::ledger_kind,$4::integer,$5::uuid,$6::uuid,$7::uuid,$8::text,$9::text FROM credit_lots AS l
+      (mentee_id,lot_id,kind,delta,session_id,payment_id,adjustment_id,reason,idempotency_key,created_at)
+      SELECT $1::uuid,$2::uuid,$3::ledger_kind,$4::integer,$5::uuid,$6::uuid,$7::uuid,$8::text,$9::text,
+        CASE WHEN $3::ledger_kind='ROLLOVER_EXPIRE' THEN GREATEST(statement_timestamp(),l.expires_at)
+             ELSE now() END
+      FROM credit_lots AS l
       WHERE l.id=$2 AND l.mentee_id=$1 AND CASE
         WHEN $3::ledger_kind IN ('PURCHASE_GRANT','PAYMENT_REVERSAL','DEBT') THEN l.payment_id=$6
         WHEN $3::ledger_kind='ADMIN_GRANT' THEN l.adjustment_id=$7

@@ -13,11 +13,25 @@ export function pageOptions(cursor?: unknown, limit?: unknown) {
   return { cursor, limit: limit === undefined ? 20 : Number(limit) };
 }
 
-interface LotBalance {
+export interface LotBalance {
   lotId: string;
   expiresAt: Date | null;
   remaining: string;
   expired: boolean;
+}
+
+export async function readLotBalances(db: PoolClient, menteeId: string, at: Date | undefined, mode: 'spending' | 'history') {
+  // A locked spend uses all committed movements, even if the caller waited for a
+  // transaction whose ledger timestamp is later than the supplied expiry clock.
+  const cutoff = mode === 'history' ? 'now()' : 'statement_timestamp()';
+  const instant = `COALESCE($2::timestamptz, ${cutoff})`;
+  const historyFilter = mode === 'history' ? `AND e.created_at <= ${instant}` : '';
+  const result = await db.query<LotBalance>(`SELECT l.id AS "lotId", l.expires_at AS "expiresAt",
+      l.expires_at IS NOT NULL AND l.expires_at <= ${instant} AS expired, SUM(e.delta) AS remaining
+    FROM ledger_entries e JOIN credit_lots l ON l.id=e.lot_id
+    WHERE e.mentee_id=$1 ${historyFilter}
+    GROUP BY l.id ORDER BY l.expires_at ASC NULLS LAST, l.created_at, l.id`, [menteeId, at]);
+  return result.rows;
 }
 
 interface HistoryEntry extends LedgerEntry {
@@ -54,14 +68,10 @@ export class WalletService {
     const db = await this.pool.connect();
     try {
       await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-      const lots = await db.query<LotBalance>(`SELECT l.id AS "lotId", l.expires_at AS "expiresAt",
-          l.expires_at <= COALESCE($2::timestamptz, now()) AS expired, SUM(e.delta) AS remaining
-        FROM ledger_entries e JOIN credit_lots l ON l.id=e.lot_id
-        WHERE e.mentee_id=$1 AND e.created_at <= COALESCE($2::timestamptz, now())
-        GROUP BY l.id ORDER BY l.expires_at, l.id`, [menteeId, asOf]);
+      const lots = await readLotBalances(db, menteeId, asOf, 'history');
       const history = await this.readPage(db, menteeId, 20, undefined, asOf);
       await db.query('COMMIT');
-      return { ...summarizeLots(lots.rows), history };
+      return { ...summarizeLots(lots), history };
     } catch (error) {
       await db.query('ROLLBACK');
       throw error;
