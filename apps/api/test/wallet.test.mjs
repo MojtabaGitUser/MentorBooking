@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { firstSpendableLot } from '../dist/wallet/rollover.service.js';
 import { pageOptions, summarizeLots } from '../dist/wallet/wallet.service.js';
 
 test('page validation bounds limits and rejects ambiguous query arguments', () => {
@@ -16,4 +17,13 @@ test('debt offsets positive credits and cannot produce negative spendable credit
   const liability = { ...normal, lotId: 'b', remaining: '-3' };
   assert.deepEqual(summarizeLots([normal, liability]),
     { normal: 2, debt: -3, rollover: 0, totalSpendable: 0, rolloverLots: [] });
+});
+
+test('selection skips expired and consumed lots and applies outstanding debt', () => {
+  const base = {lotId:'normal', remaining:'1', expiresAt:null, expired:false};
+  const rollover = {...base, lotId:'rollover', expiresAt:new Date('2090-01-01Z')};
+  const lots = [{...rollover,expired:true},{...rollover,remaining:'0'},rollover,base];
+  assert.equal(firstSpendableLot(lots).lotId,'rollover');
+  assert.equal(firstSpendableLot([...lots,{...base,remaining:'-2'}]),null);
+  assert.equal(firstSpendableLot([]),null);
 });

@@ -109,3 +109,9 @@ Each CLI invocation creates a fresh provider event ID. To retry an identical del
 A verified receipt survives a crash before financial processing. Redelivery resumes it. To recover without waiting for the provider, run `npm run payment:recover` with the stack up, including after restarting the API. The command starts a fresh process and examines up to 100 pending events, least-attempted first. It reports examined/failed counts and exits nonzero if any failed. Repeat for additional batches or after resolving a transient error. An empty batch reports zero examined.
 
 Run `npm test` for HMAC unit tests and `npm run test:payments` for CLI, concurrency and rollback tests on disposable PostgreSQL.
+
+## Rollover expiry
+
+With Compose running, execute `npm run credits:expire` from the repository root. This performs one expiry pass and prints the number of lots journaled. It is safe to rerun after interruption or alongside another pass. The wallet excludes expired credit immediately, including before this command runs. Only unspent rollover credit expires; prior allocations and future session reservations remain in place.
+
+Run `npm test` for selection policy unit tests and `npm run test:wallet` for real PostgreSQL tests of expiry boundaries, debit/expiry races, rollback and reservation attribution. See the [integration contract](docs/design.md#rollover-selection-and-expiry) for the transaction and clock requirements.

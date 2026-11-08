@@ -14,9 +14,11 @@ import { WalletController } from './wallet/wallet.controller';
 import { PaymentsController } from './payments/payments.controller';
 import { PaymentsService } from './payments/payments.service';
 
+import { RolloverService } from './wallet/rollover.service';
+
 @Module({
   controllers: [HealthController, MeController, WalletController, PaymentsController],
-  providers: [PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
+  providers: [RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
     provide: Pool,
     useFactory: () => new Pool({
       ...connectionOptions(),
