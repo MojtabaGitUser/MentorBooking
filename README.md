@@ -102,6 +102,10 @@ The purchase returns HTTP 201 with `paymentId`, `providerPaymentId`, `status: PE
 
 The CLI signs the exact UTF-8 event body containing `eventId`, `paymentId`, `type` and `occurredAt` with HMAC-SHA256. It sends `X-Webhook-Signature: sha256=<hex>` and prints the HTTP response. Compose provisions a local key automatically. Set `WEBHOOK_SECRET` to override it. For host-side simulation set the same secret and `PAYMENT_API_URL=http://localhost:3001`, then run `node apps/api/scripts/fake-provider.mjs --payment <providerPaymentId> --event succeeded`.
 
-To simulate a refund run `npm run payment:simulate -- --payment $order.providerPaymentId --event refunded`. The CLI prints HTTP 501 with `REFUND_NOT_PROCESSED` and exits with status 1. Event-inbox persistence, terminal refunds, reversals, ordering and crash replay belong to US-09.
+To simulate a full refund run `npm run payment:simulate -- --payment $order.providerPaymentId --event refunded`. The first refund returns HTTP 200 with `status: REFUNDED`. A refund before success closes the order without a grant. A refund after success reverses unspent credits from that purchase and records previously spent credits as signed debt. For example, spending one of four credits before the refund produces PAYMENT_REVERSAL -3 and DEBT -1. Use the wallet and transactions endpoints to inspect both entries.
+
+Each CLI invocation creates a fresh provider event ID. To retry an identical delivery, send the same signed bytes and event ID. A processed replay returns the current payment status and `duplicate:true`. A different ID for an already satisfied transition is also acknowledged without another grant or reversal. Reusing an ID with different signed bytes returns HTTP 409 `EVENT_ID_CONFLICT`.
+
+A verified receipt survives a crash before financial processing. Redelivery resumes it. To recover without waiting for the provider, run `npm run payment:recover` with the stack up, including after restarting the API. The command starts a fresh process and examines up to 100 pending events, least-attempted first. It reports examined/failed counts and exits nonzero if any failed. Repeat for additional batches or after resolving a transient error. An empty batch reports zero examined.
 
 Run `npm test` for HMAC unit tests and `npm run test:payments` for CLI, concurrency and rollback tests on disposable PostgreSQL.

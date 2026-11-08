@@ -16,7 +16,7 @@ export class PaymentsController {
   @Public()
   @Post('webhooks/fake-payments')
   @HttpCode(200)
-  receive(@Body() raw: unknown, @Headers('x-webhook-signature') signature?: string) {
-    return this.payments.receive(verifiedEvent(raw, signature, webhookSecret()));
+  receive(@Body() raw: Buffer, @Headers('x-webhook-signature') signature?: string) {
+    return this.payments.receive(verifiedEvent(raw, signature, webhookSecret()), raw);
   }
 }
