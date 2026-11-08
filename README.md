@@ -11,7 +11,11 @@ docker compose up --build -d --wait
 docker compose exec -T api node infra/db/bootstrap.mjs seed
 ```
 
-The second command is safe to repeat. With npm installed, `npm run seed` is the same command. In US-01 it checks the applied bootstrap migration. Domain tables and sample accounts belong to US-02 and US-03 respectively.
+The second command is safe to repeat. With npm installed, `npm run seed` is the same command. Seed currently checks the bootstrap baseline. US-03 adds sample accounts.
+
+Compose runs the privileged `migrate` service after PostgreSQL is ready and starts the API with the restricted `mentor_app` login after migrations succeed. Existing US-01 installations can run the same startup command against their existing volumes. Inspect migration results with `docker compose logs migrate` or rerun with `docker compose run --rm migrate`. Numbered SQL files run in one transaction under the existing bootstrap lock. See the [schema and ERD](docs/design.md).
+
+`npm run test:schema` tests the bundled PostgreSQL server through the migration container. Each run creates a uniquely named temporary database, runs the migrations, connects as the API login, and removes only that database afterward. `npm run test:integration` includes these tests and the live health check. Rebuild the images after changing SQL or schema tests.
 
 Open the [status page](http://localhost:3000) or [API health endpoint](http://localhost:3001/health). The endpoint returns HTTP 200 with the application version and database status after a successful database query, or HTTP 503 when the query fails.
 
