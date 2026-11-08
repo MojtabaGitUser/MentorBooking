@@ -51,3 +51,9 @@ Unique provider identifiers protect payment and event identity. The inbox stores
 Wallet totals and the first history page use one read-only repeatable-read snapshot. The default cutoff is the PostgreSQL transaction clock; an internal `asOf` can reproduce a historical cutoff. Positive normal lot remainders and unexpired rollover remainders are reported separately. A rollover stops contributing at its exact expiry. Negative lot remainders are shown as signed debt; spendable credit is the positive portion of normal plus rollover plus debt. This accounts for reversals and compensations through net lot balances.
 
 History orders by database timestamp and UUID descending. A cursor identifies its immutable anchor in the current user's ledger; PostgreSQL compares both columns at native precision. Newer inserts appear on refresh. Separate page requests read the current committed history. Expiry and cancellation never erase earlier movements.
+
+### Fake payment confirmation
+
+The authenticated mentee orders the four-credit MVP pack. PostgreSQL holds the pending quantity and purchaser. The webhook authenticates its sender with a constant-time HMAC-SHA256 comparison over the original, uncompressed request bytes before JSON decoding. The provider payment identifier resolves the order. A signed pack quantity must match the stored quantity when supplied.
+
+Success handling locks the payment row, checks its status, then locks the mentee row before creating a normal credit lot. The lot, PURCHASE_GRANT keyed by the internal payment UUID, and the transition to SUCCEEDED commit in one transaction. A competing delivery waits on the payment lock and sees the committed status before creating another lot. US-08 deduplicates grants per payment. The US-09 inbox will additionally track event identities and reconcile refunds and reordered deliveries.

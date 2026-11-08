@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test test/health.test.mjs test/wallet.test.mjs"
+    "test": "npm run build && node --test test/health.test.mjs test/wallet.test.mjs test/payments.test.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11",
