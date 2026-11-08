@@ -1,0 +1,24 @@
+{
+  "name": "@mentor/web",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "next build --webpack",
+    "typecheck": "next typegen && tsc --noEmit",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^16",
+    "react": "^19",
+    "react-dom": "^19",
+    "lucide-react": "^0.577",
+    "clsx": "^2",
+    "tailwind-merge": "^3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "mentor-booking",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "docker compose up --build",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w @mentor/api",
+    "test:integration": "node --test infra/tests/health.integration.mjs",
+    "test:e2e": "playwright test",
+    "seed": "docker compose exec -T api node infra/db/bootstrap.mjs seed"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.55",
+    "@types/node": "^24",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@mentor/api",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test test/health.test.mjs"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11",
+    "@nestjs/core": "^11",
+    "@nestjs/platform-express": "^11",
+    "reflect-metadata": "^0.2",
+    "rxjs": "^7",
+    "pg": "^8"
+  },
+  "devDependencies": {
+    "@types/pg": "^8"
+  }
+}

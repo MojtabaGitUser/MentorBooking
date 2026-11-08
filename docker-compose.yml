@@ -1,0 +1,79 @@
+services:
+  db-secret:
+    image: postgres:17-alpine
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        umask 077
+        if [ ! -s /secrets/password ]; then
+          head -c 32 /dev/urandom | base64 > /secrets/password.tmp
+          chown postgres:postgres /secrets/password.tmp
+          mv /secrets/password.tmp /secrets/password
+        fi
+    volumes:
+      - db-secret:/secrets
+
+  db:
+    image: postgres:17-alpine
+    depends_on:
+      db-secret:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: mentor_booking
+      POSTGRES_USER: mentor
+      POSTGRES_PASSWORD_FILE: /secrets/password
+    volumes:
+      - db-secret:/secrets:ro
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U mentor -d mentor_booking"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      PGHOST: db
+      PGDATABASE: mentor_booking
+      PGUSER: mentor
+      DB_PASSWORD_FILE: /secrets/password
+      DATABASE_URL: ${DATABASE_URL:-}
+    volumes:
+      - db-secret:/secrets:ro
+    ports:
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://api:3001}
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pg-data:
+  db-secret:
