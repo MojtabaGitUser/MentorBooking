@@ -52,6 +52,17 @@ export function candidateStarts(range: ReturnType<typeof slotQuery>, mentorZone:
   return [...starts].sort((a, b) => a - b);
 }
 
+// Booking revalidation (US-11): an instant is bookable only if the preview generator would offer it
+// for the mentor-local date on which it starts. This reuses the same rule fitting, spring-gap skipping
+// and fall-back policy (earlier occurrence only), so booking can never accept a slot preview omits.
+export function isOfferedStart(startMs: number, mentorZone: string, rules: Rule[]) {
+  const local = DateTime.fromMillis(startMs, { zone: mentorZone });
+  if (!local.isValid) return false;
+  const day = DateTime.utc(local.year, local.month, local.day);
+  if (!day.isValid) return false;
+  return candidateStarts({ from: day, to: day, viewerTimezone: 'UTC' }, mentorZone, rules).includes(startMs);
+}
+
 // Over each constant-offset segment, wall time advances monotonically. Check both segments
 // if a transition falls inside the slot (some zones transition at a quarter hour).
 function fitsWindow(start: number, zone: DateTime['zone'], day: number, rule: Rule) {

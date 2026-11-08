@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test -w @mentor/api",
-    "test:integration": "node --test infra/tests/health.integration.mjs && npm run test:schema && npm run test:auth && npm run test:wallet && npm run test:payments && npm run test:availability",
+    "test:integration": "node --test infra/tests/health.integration.mjs && npm run test:schema && npm run test:auth && npm run test:wallet && npm run test:payments && npm run test:availability && npm run test:bookings",
     "test:auth": "docker compose exec -T api node --test apps/api/test/auth.integration.mjs",
     "credits:expire": "docker compose exec -T api node apps/api/dist/wallet/expire.js",
     "payment:recover": "docker compose exec -T api node apps/api/dist/payments/recover.js",
@@ -22,7 +22,8 @@
     "test:schema": "docker compose run --rm -T --no-deps migrate node --test infra/db/tests/schema.test.mjs",
     "test:e2e": "playwright test",
     "seed": "docker compose exec -T api node infra/db/bootstrap.mjs seed",
-    "test:availability": "docker compose run --rm -T --no-deps migrate node --test apps/api/test/schedule.integration.mjs"
+    "test:availability": "docker compose run --rm -T --no-deps migrate node --test apps/api/test/schedule.integration.mjs",
+    "test:bookings": "docker compose run --rm -T --no-deps migrate node --test apps/api/test/booking.integration.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
