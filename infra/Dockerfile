@@ -13,7 +13,7 @@ COPY packages/shared packages/shared
 COPY apps/api apps/api
 COPY infra/db infra/db
 RUN npm run build -w @mentor/api
-CMD ["sh", "-ec", "node infra/db/bootstrap.mjs migrate && exec node apps/api/dist/main.js"]
+CMD ["node", "apps/api/dist/main.js"]
 
 FROM dependencies AS web
 COPY tsconfig.base.json ./

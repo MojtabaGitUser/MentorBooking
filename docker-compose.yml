@@ -10,8 +10,13 @@ services:
           chown postgres:postgres /secrets/password.tmp
           mv /secrets/password.tmp /secrets/password
         fi
+        if [ ! -s /runtime/password ]; then
+          head -c 32 /dev/urandom | base64 > /runtime/password.tmp
+          mv /runtime/password.tmp /runtime/password
+        fi
     volumes:
       - db-secret:/secrets
+      - runtime-secret:/runtime
 
   db:
     image: postgres:17-alpine
@@ -31,23 +36,41 @@ services:
       timeout: 3s
       retries: 30
 
-  api:
-    build:
+  migrate:
+    build: &api-build
       context: .
       dockerfile: infra/Dockerfile
       target: api
+    command: ["node", "infra/db/bootstrap.mjs", "migrate"]
     depends_on:
       db:
         condition: service_healthy
     environment:
-      PORT: 3001
       PGHOST: db
       PGDATABASE: mentor_booking
       PGUSER: mentor
       DB_PASSWORD_FILE: /secrets/password
-      DATABASE_URL: ${DATABASE_URL:-}
+      RUNTIME_PASSWORD_FILE: /runtime/password
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:-}
+      EXTERNAL_API_CONFIGURED: ${DATABASE_URL:+yes}
     volumes:
       - db-secret:/secrets:ro
+      - runtime-secret:/runtime:ro
+
+  api:
+    build: *api-build
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3001
+      PGHOST: db
+      PGDATABASE: mentor_booking
+      PGUSER: mentor_app
+      DB_PASSWORD_FILE: /runtime/password
+      DATABASE_URL: ${DATABASE_URL:-}
+    volumes:
+      - runtime-secret:/runtime:ro
     ports:
       - "127.0.0.1:3001:3001"
     healthcheck:
@@ -77,3 +100,4 @@ services:
 volumes:
   pg-data:
   db-secret:
+  runtime-secret:
