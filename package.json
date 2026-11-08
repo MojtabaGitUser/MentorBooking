@@ -32,5 +32,10 @@
     "eslint-plugin-react-hooks": "^7",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8"
+  },
+  "overrides": {
+    "@nestjs/platform-express@11.2.8": {
+      "multer": "2.5.0"
+    }
   }
 }
