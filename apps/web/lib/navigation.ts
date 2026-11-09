@@ -22,15 +22,15 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
   ],
   mentor: [
     { label: 'Dashboard', href: '/mentor', icon: 'layout', status: 'ready' },
-    { label: 'My sessions', href: '/mentor/sessions', icon: 'calendar', status: 'upcoming', story: 'US-18' },
-    { label: 'Availability', href: '/mentor/availability', icon: 'clock', status: 'upcoming', story: 'US-18' },
+    { label: 'My sessions', href: '/mentor/sessions', icon: 'calendar', status: 'ready' },
+    { label: 'Availability', href: '/mentor/availability', icon: 'clock', status: 'ready' },
     { label: 'Profile', href: '/mentor/profile', icon: 'user', status: 'upcoming' },
   ],
   admin: [
     { label: 'Dashboard', href: '/admin', icon: 'layout', status: 'ready' },
-    { label: 'Users', href: '/admin/users', icon: 'users', status: 'upcoming', story: 'US-18' },
-    { label: 'Credit adjustments', href: '/admin/adjustments', icon: 'coins', status: 'upcoming', story: 'US-18' },
-    { label: 'Ledger / audit', href: '/admin/ledger', icon: 'scroll', status: 'upcoming', story: 'US-18' },
+    { label: 'Users', href: '/admin/users', icon: 'users', status: 'ready' },
+    { label: 'Credit adjustments', href: '/admin/adjustments', icon: 'coins', status: 'ready' },
+    { label: 'Ledger / audit', href: '/admin/ledger', icon: 'scroll', status: 'ready' },
   ],
 };
 

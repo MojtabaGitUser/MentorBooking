@@ -1,13 +1,5 @@
-import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
-import { WorkspaceOverview } from '@/components/layout/workspace-overview';
-import { currentUser, homeFor } from '@/lib/session';
-
-export const metadata: Metadata = { title: 'Admin dashboard' };
-
-export default async function AdminHome() {
-  const user = (await currentUser())!;
-  if (user.role !== 'admin') redirect(homeFor(user.role));
-  return <WorkspaceOverview user={user} title="Admin dashboard"
-    description="Operations workspace. User lookup, ledger audit and credit adjustments arrive in the admin console release." />;
+import { AdminConsole, type Search } from '@/components/dashboard/admin-console';
+export const metadata = { title: 'Admin dashboard' };
+export default function Page({ searchParams }: { searchParams: Search }) {
+  return <AdminConsole searchParams={searchParams} path="/admin" title="Admin dashboard" />;
 }

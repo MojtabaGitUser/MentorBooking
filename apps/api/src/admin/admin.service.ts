@@ -30,6 +30,14 @@ export class AdminService {
 
   constructor(private readonly pool: Pool, private readonly ledger: LedgerService, private readonly wallets: WalletService) {}
 
+  async findUsers(query: unknown) {
+    const search = typeof query === 'string' ? query.trim() : '';
+    const { rows } = await this.pool.query(`SELECT id, role, display_name AS "displayName" FROM users
+      WHERE strpos(lower(display_name), lower($1)) > 0 OR id::text = lower($1)
+      ORDER BY display_name, id LIMIT 26`, [search]);
+    return { items: rows.slice(0, 25), hasMore: rows.length > 25 };
+  }
+
   // Any user's ledger. Mentors and admins hold no credit, so their ledger is empty.
   async ledgerFor(userId: string, cursor?: unknown, limit?: unknown) {
     const id = targetUserId(userId);

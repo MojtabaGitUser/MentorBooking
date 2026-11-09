@@ -7,6 +7,11 @@ import { AdminService } from './admin.service';
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
+  @Get()
+  users(@Query('q') query?: string) {
+    return this.admin.findUsers(query);
+  }
+
   @Get(':id/ledger')
   ledger(@Param('id') id: string, @Query('cursor') cursor?: string, @Query('limit') limit?: string) {
     return this.admin.ledgerFor(id, cursor, limit);
