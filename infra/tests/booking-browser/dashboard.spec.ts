@@ -101,6 +101,7 @@ test('mentor schedule changes slots, handles conflicts, joins early and refunds 
   await button(page, 'Confirm cancellation').click();
   await expect(page.getByText('No upcoming sessions')).toBeVisible();
   expect((await api('/wallet/me', mentee)).totalSpendable).toBe(1);
+  expect(sql(`SELECT count(*) FROM outbox_events WHERE event_key='mentor-cancelled:${session.sessionId}' AND type='MENTOR_CANCELLED'`)).toBe('1');
   await page.getByRole('link', { name: 'Past', exact: true }).click();
   await expect(page.getByText('Cancelled by mentor')).toBeVisible();
   await expect(button(page, 'Cancel session')).toHaveCount(0);

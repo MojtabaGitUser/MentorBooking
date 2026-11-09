@@ -332,7 +332,8 @@ test('two mentees racing for the same slot: exactly one 201, one 409, one sessio
   const totals = [await effects(a), await effects(b)];
   assert.equal(totals.reduce((n, e) => n + e.debits, 0), 1);
   assert.equal(totals.reduce((n, e) => n + e.allocations, 0), 1);
-  assert.deepEqual((await Promise.all([wallet(a), wallet(b)])).sort(), [0, 1]);
+  assert.deepEqual(await Promise.all([wallet(a), wallet(b)]), results.map(r => r.status === 201 ? 0 : 1));
+  assert.deepEqual(totals, results.map(r => r.status === 201 ? { ...none, sessions: 1, allocations: 1, debits: 1 } : none));
 });
 
 test('ten mentees racing for one slot still produce exactly one booking', async t => {
@@ -562,6 +563,45 @@ test('a failure after the ledger debit rolls back session, allocation, debit and
   const retry = await book(me, m, '2030-06-03T10:00:00Z', 'crash-2');
   assert.equal(retry.status, 201);
   assert.deepEqual(await effects(me), { sessions: 1, allocations: 1, debits: 1, keys: 1 });
+});
+
+test('competing payloads for one key persist only the winning UTC slot and replay its receipt', async () => {
+  const m = await mentor(), me = await mentee(2), key = uuid();
+  const starts = ['2090-01-09T10:00:00Z', '2090-01-09T11:00:00Z'];
+  const results = await barrier(lockMentee, [me], starts.map(start => () => book(me, m, start, key)));
+  assert.deepEqual(results.map(r => r.status).sort(), [201, 409]);
+  const winner = results.findIndex(r => r.status === 201);
+  assert.equal(results[1-winner].data.code, 'IDEMPOTENCY_CONFLICT');
+  assert.equal(results[winner].data.startsAt, starts[winner]);
+  assert.deepEqual(await book(me, m, starts[winner], key), { status: 200, data: results[winner].data });
+  assert.deepEqual(await effects(me), { sessions: 1, allocations: 1, debits: 1, keys: 1 });
+  assert.equal(await wallet(me), 1);
+});
+
+test('mentor timezone change invalidates a stale UTC preview while viewer timezone only changes labels', async () => {
+  const m = await mentor('Asia/Kolkata', allWeek.map(([weekday]) => [weekday, '09:00', '09:30']));
+  const me = await mentee(1, 'America/Los_Angeles');
+  async function preview() {
+    const response = await fetch(base+'/mentors/'+m+'/slots?from=2090-01-15&to=2090-01-15', { headers: { 'X-User-Id': me } });
+    assert.equal(response.status, 200);
+    const { slots } = await response.json();
+    assert.equal(slots.length, 1);
+    return slots[0];
+  }
+  const old = await preview();
+  assert.equal(old.localStartsAt, '2090-01-14T19:30:00-08:00');
+  await pool.query("UPDATE users SET timezone='Europe/London' WHERE id=$1", [m]);
+  conflict(await book(me, m, old.startsAt), 'SLOT_UNAVAILABLE', 'OUTSIDE_AVAILABILITY');
+  assert.deepEqual(await effects(me), none);
+  const fresh = await preview();
+  await pool.query("UPDATE users SET timezone='Asia/Kolkata' WHERE id=$1", [me]);
+  const relabelled = await preview();
+  assert.equal(relabelled.startsAt, fresh.startsAt);
+  assert.equal(relabelled.localStartsAt, '2090-01-15T14:30:00+05:30');
+  const result = await book(me, m, fresh.startsAt);
+  assert.equal(result.status, 201);
+  assert.equal(result.data.startsAt, '2090-01-15T09:00:00Z');
+  assert.equal(await wallet(me), 0);
 });
 
 // ---------- global invariants (run last) ----------

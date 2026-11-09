@@ -436,7 +436,8 @@ test('adjustment idempotency: identical retry replays with 200; any different co
 });
 
 test('concurrent adjustments on independent connections: one per key, distinct keys all audited, no retries', async t => {
-  const m = await mentee(2);
+  // The revoke must be valid even when it acquires the lock before either grant.
+  const m = await mentee(3);
   const tries = attempts(t, admins);
   const same = { delta: 2, reason: 'Same request', idempotencyKey: 'same-' + m.id };
   const results = await barrier(lockMentee, [m.id], [
@@ -449,7 +450,7 @@ test('concurrent adjustments on independent connections: one per key, distinct k
   assert.deepEqual(results.slice(3).map(r => r.status), [201, 201]);
   const { rows } = await pool.query('SELECT count(*)::int AS n, SUM(delta)::int AS total FROM credit_adjustments WHERE mentee_id=$1', [m.id]);
   assert.deepEqual(rows[0], { n: 3, total: 0 });
-  assert.equal(await wallet(m.id), 2);
+  assert.equal(await wallet(m.id), 3);
   const { rows: [neg] } = await pool.query(`SELECT count(*)::int AS n FROM (SELECT lot_id FROM ledger_entries WHERE mentee_id=$1
     GROUP BY lot_id HAVING SUM(delta) < 0) x`, [m.id]);
   assert.equal(neg.n, 0);
@@ -498,4 +499,30 @@ test('ledger rows stay immutable for the runtime role', async () => {
   const { rows: [grants] } = await pool.query(`SELECT bool_or(has_table_privilege(t,'UPDATE') OR has_table_privilege(t,'DELETE')) AS mutable
     FROM unnest(ARRAY['ledger_entries','credit_lots','session_credit_allocations','booking_requests','credit_adjustments']) t`);
   assert.equal(grants.mutable, false);
+});
+
+test('a failure on the second lot of a revoke rolls back the first debit and the receipt; same key recovers', async t => {
+  const { id } = await mentee(1);
+  await purchase(id, 1);
+  const before = await ledgerRows(id);
+  const body = { delta: -2, reason: 'Two-lot correction', idempotencyKey: uuid() };
+  const append = ledger.appendEntry.bind(ledger);
+  let writes = 0;
+  const fault = t.mock.method(ledger, 'appendEntry', async (client, input) => {
+    if (input.kind === 'ADMIN_REVOKE' && ++writes === 2) throw Error('injected failure on second debit');
+    return append(client, input);
+  });
+  const failed = await adjust(id, body);
+  fault.mock.restore();
+  assert.equal(writes, 2);
+  assert.deepEqual([failed.status, failed.data.code], [500, 'ADJUSTMENT_FAILED']);
+  assert.deepEqual(await ledgerRows(id), before);
+  assert.equal((await pool.query('SELECT id FROM credit_adjustments WHERE idempotency_key=$1', [body.idempotencyKey])).rowCount, 0);
+  assert.equal(await wallet(id), 2);
+  const recovered = await adjust(id, body);
+  assert.equal(recovered.status, 201);
+  assert.deepEqual(recovered.data.entries.map(e => e.delta), [-1, -1]);
+  assert.equal(new Set(recovered.data.entries.map(e => e.lotId)).size, 2);
+  assert.deepEqual(await adjust(id, body), { status: 200, data: recovered.data });
+  assert.equal(await wallet(id), 0);
 });

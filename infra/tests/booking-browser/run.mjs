@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const directory = process.argv.includes('--directory');
+const workerJourney = process.argv.includes('--worker-journey');
 const db = 'booking_ui_' + randomUUID().replaceAll('-', '');
 const api = db + '-api',
   web = db + '-web';
@@ -21,7 +22,7 @@ try {
   const env = ['-e', 'PGDATABASE=' + db, '-e', 'DATABASE_URL=', '-e', 'EXTERNAL_API_CONFIGURED='];
   for (const command of ['migrate', 'seed'])
     compose('run', '--rm', '--no-deps', ...env, 'migrate', 'node', 'infra/db/bootstrap.mjs', command);
-  start(api, 3001, [...env, '-e', 'DEMO_AUTH_ENABLED=true'], 'api');
+  start(api, 3001, [...env, '-e', 'DEMO_AUTH_ENABLED=true', '-e', 'WEBHOOK_SECRET=isolated-browser-test-vector'], 'api');
   apiStarted = true;
   start(web, 3000, ['-e', 'API_BASE_URL=http://' + api + ':3001'], 'web');
   webStarted = true;
@@ -34,6 +35,7 @@ try {
         .catch(() => false)
     )
       break;
+    if (i === 59) throw new Error('Isolated browser stack did not become ready');
     await delay(500);
   }
   let outageURL;
@@ -47,7 +49,7 @@ try {
     [
       'node_modules/@playwright/test/cli.js',
       'test',
-      ...process.argv.slice(2).filter((arg) => arg !== '--directory'),
+      ...process.argv.slice(2).filter((arg) => arg !== '--directory' && arg !== '--worker-journey'),
     ],
     {
       stdio: 'inherit',
@@ -55,6 +57,7 @@ try {
         ...process.env,
         E2E_BOOKING_DB: directory ? '' : db,
         E2E_API_DOWN_URL: outageURL,
+        E2E_WORKER_JOURNEY: workerJourney ? '1' : '',
         E2E_BASE_URL: baseURL,
         E2E_BOOKING_API: apiURL,
       },

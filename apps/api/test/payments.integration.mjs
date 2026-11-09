@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { execFileSync, execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -16,7 +16,8 @@ import { connectionOptions } from '../../../infra/db/config.cjs';
 const database = 'payment_test_' + randomUUID().replaceAll('-', '');
 const owner = new pg.Client({ ...connectionOptions(), database:'postgres' });
 const mentee = '00000000-0000-4000-8000-000000000003';
-const secret = randomBytes(32).toString('hex');
+// Public test vector scoped to the disposable test application.
+const secret = 'isolated-payment-integration-test-vector';
 let app, base, pool, created;
 before(async () => {
   assert.ok(!process.env.DATABASE_URL, 'Use the bundled PostgreSQL server for payment tests');
