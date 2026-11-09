@@ -86,6 +86,28 @@ services:
       timeout: 4s
       retries: 20
 
+  # Background jobs (US-15): lifecycle ticks, rollover expiry, reminders and outbox delivery.
+  # Same image as the API but a separate process; the API never runs the loop. Several replicas are
+  # safe because every job is coordinated in PostgreSQL (row locks, SKIP LOCKED, unique keys).
+  worker:
+    build: *api-build
+    command: ["node", "apps/api/dist/worker/main.js"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: db
+      PGDATABASE: mentor_booking
+      PGUSER: mentor_app
+      DB_PASSWORD_FILE: /runtime/password
+      DATABASE_URL: ${DATABASE_URL:-}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-5000}
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-100}
+    volumes:
+      - runtime-secret:/runtime:ro
+    restart: unless-stopped
+    stop_grace_period: 30s
+
   web:
     build:
       context: .

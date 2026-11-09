@@ -70,11 +70,19 @@ export class LifecycleService {
       WHERE status IN ('scheduled','in_progress') AND ends_at + $3::interval <= COALESCE($1::timestamptz, clock_timestamp())
       ORDER BY ends_at, id LIMIT $2`, [options.now ?? null, options.limit ?? 100, `${RESOLUTION_GRACE_MS / 1000} seconds`]);
     const resolved: { sessionId: string; outcome: Outcome }[] = [];
+    let failed = 0;
     for (const { id } of rows) {
-      const result = await this.resolveSession(id, options.now);
-      if (result) resolved.push(result);
+      // One failing session must not block every later one (candidates are ordered by end time).
+      // Its transaction rolled back; it stays due and is retried on the next tick.
+      try {
+        const result = await this.resolveSession(id, options.now);
+        if (result) resolved.push(result);
+      } catch (error) {
+        failed++;
+        this.logger.warn(`Resolution of session ${id} failed; will retry: ${(error as Error).message}`);
+      }
     }
-    return { resolved };
+    return { resolved, failed };
   }
 
   // Returns null if the session is not (or no longer) due, e.g. cancelled or resolved by another worker.
