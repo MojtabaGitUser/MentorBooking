@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/states/empty-state';
 import { InitialsAvatar } from '@/components/ui/avatar';
+import { SessionOutcome } from '@/components/wallet/session-outcome';
+import { sessionLabels } from '@/lib/wallet';
 import { sessionTime } from '@/lib/booking-format';
 import type { RefundPreview, Session } from '@/lib/types';
 
@@ -116,7 +118,7 @@ export function SessionList({
         const active = ['scheduled', 'in_progress'].includes(s.status);
         const status = s.cancelledBy
           ? 'Cancelled by ' + (s.cancelledBy === 'mentor' ? 'mentor' : 'you')
-          : s.status.replaceAll('_', ' ');
+          : sessionLabels[s.status] ?? s.status;
         return (
           <Card
             key={s.sessionId}
@@ -130,6 +132,7 @@ export function SessionList({
                 <Badge className="capitalize" variant={active ? 'default' : 'neutral'}>
                   {status}
                 </Badge>
+                {past && <SessionOutcome session={s} zone={zone}/> }
               </div>
             </div>
             <div className="flex flex-wrap gap-2">

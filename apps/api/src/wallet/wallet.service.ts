@@ -64,14 +64,19 @@ export function summarizeLots(lots: LotBalance[]) {
 export class WalletService {
   constructor(private readonly pool: Pool) {}
 
-  async getWallet(menteeId: string, asOf?: Date) {
+  async getWallet(menteeId: string, asOf?: Date, includePurchases = false) {
     const db = await this.pool.connect();
     try {
       await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       const lots = await readLotBalances(db, menteeId, asOf, 'history');
       const history = await this.readPage(db, menteeId, 20, undefined, asOf);
+      const purchases = includePurchases ? (await db.query(`SELECT id AS "paymentId",
+        provider_payment_id AS "providerPaymentId", credits_purchased AS "packCredits", status,
+        created_at AS "createdAt" FROM payments WHERE mentee_id=$1
+        ORDER BY created_at DESC, id DESC LIMIT 10`, [menteeId])).rows : undefined;
       await db.query('COMMIT');
-      return { ...summarizeLots(lots), history };
+      const lastExpired = lots.filter(lot => lot.expired).at(-1);
+      return { ...summarizeLots(lots), ...(purchases && { purchases }), ...(lastExpired && { lastRolloverExpiry: lastExpired.expiresAt }), history };
     } catch (error) {
       await db.query('ROLLBACK');
       throw error;

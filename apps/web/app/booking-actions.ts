@@ -22,6 +22,14 @@ async function asAccount<T>(expected: string, operation: () => Promise<T>) {
   }
 }
 
+export async function purchasePack(account: string) {
+  return asAccount(account, async () => {
+    await apiRequest('/payments/purchases', { method: 'POST', body: { packCredits: 4 } });
+    revalidatePath('/wallet');
+    return true;
+  });
+}
+
 export async function reserve(account: string, mentorId: string, startsAt: string, key: string) {
   return asAccount(account, async () => {
     if (typeof key !== 'string' || !key)
@@ -31,6 +39,7 @@ export async function reserve(account: string, mentorId: string, startsAt: strin
       { method: 'POST', key, body: { mentorId, startsAt } },
     );
     revalidatePath('/sessions');
+    revalidatePath('/wallet', 'layout');
     return result;
   });
 }
@@ -48,6 +57,7 @@ export async function cancelBooking(account: string, id: string, expectedRefunda
       { method: 'POST', body: { expectedRefundableCredits } },
     );
     revalidatePath('/sessions');
+    revalidatePath('/wallet', 'layout');
     return result;
   });
 }

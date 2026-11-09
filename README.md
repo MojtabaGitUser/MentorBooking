@@ -307,4 +307,14 @@ From a mentor profile, choose **Book a session**, a day and an opening. The week
 
 Open **My sessions** at `/sessions` for upcoming sessions or `/sessions?status=past` for history. Join records attendance during the API's join window. **Cancel session** first requests a refund preview. More than 24 hours gives one credit back. Exactly 24 hours or less gives zero, and cancellation closes at session start. A changed outcome stays in the dialog for a second explicit confirmation.
 
-Run `npm test`, `npm run test:integration` and `npm run test:e2e` on the seeded demo stack. After `docker compose up -d --build --wait`, run `npm run test:e2e:booking` for financial browser tests. It starts a dedicated API and web instance against a disposable PostgreSQL database and saves screenshots under `test-results/booking`. To run the directory suite on fresh seed data, including the outage case, use `npm run test:e2e:booking -- --directory`. US-17 can reuse the authenticated wallet read and session views when adding purchases and ledger history.
+Run `npm test`, `npm run test:integration` and `npm run test:e2e` on the seeded demo stack. After `docker compose up -d --build --wait`, run `npm run test:e2e:booking` for financial browser tests. It starts a dedicated API and web instance against a disposable PostgreSQL database and saves screenshots under `test-results/booking`. To run the directory suite on fresh seed data, including the outage case, use `npm run test:e2e:booking -- --directory`.
+
+### Mentee wallet and history (US-17)
+
+Open **My wallet** at `/wallet` for total spendable, normal and rollover credits. The API applies debt and excludes expired rollover at its exact expiry. Spendable rollover lots are listed earliest expiry first in the mentee's timezone. **Refresh wallet** rereads balances and recent orders. **History** at `/wallet/history` uses the authenticated ledger cursor, with 20 entries per page, signed credit amounts, reasons and expandable transaction references.
+
+Choose **Buy 4 credits** and confirm to create a pending demo order. Expand **Complete demo payment**, run the displayed fake-provider command from the repository root and refresh. Only the signed webhook grants credits. Recent purchases shows the last ten orders, including refunded orders. The provider supports pending, succeeded and refunded statuses. Request errors are shown separately. If the response is lost, refresh and inspect orders before deliberately starting another purchase.
+
+In **My sessions → Past**, expand **Attendance & credit details** to see both join records, the original booking debit, and any posted refunds or no-show rollover award. Dates and times use the saved viewer timezone.
+
+Run `npm test`, `npm run test:integration`, and, with the rebuilt Compose stack, `npm run test:e2e:booking -- --workers=1` for the isolated booking and wallet browser suites. Use `npm run test:e2e:booking -- --directory` for directory and shell regression tests.

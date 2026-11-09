@@ -40,6 +40,8 @@ export interface Session {
   endsAt: string;
   status: string;
   joinedMenteeAt: string | null;
+  joinedMentorAt: string | null;
+  creditActivity?: import('./wallet').CreditMovement[];
   cancelledBy: 'mentor' | 'mentee' | null;
 }
 
