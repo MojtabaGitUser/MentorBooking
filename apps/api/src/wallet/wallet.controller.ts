@@ -8,8 +8,8 @@ export class WalletController {
   constructor(private readonly wallets: WalletService) {}
 
   @Get()
-  wallet(@CurrentUser() user: AuthenticatedUser) {
-    return this.wallets.getWallet(user.id);
+  wallet(@CurrentUser() user: AuthenticatedUser, @Query('include') include?: string) {
+    return this.wallets.getWallet(user.id, undefined, include === 'purchases');
   }
 
   @Get('transactions')

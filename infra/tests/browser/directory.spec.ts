@@ -92,9 +92,9 @@ test.describe('mentor directory (mentee)', () => {
 
   test('mentee navigation: live booking and directory items, the rest clearly upcoming and not links', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'Main' });
-    await expect(nav.getByRole('link')).toHaveText(['Discover mentors', 'My sessions']);
+    await expect(nav.getByRole('link')).toHaveText(['Discover mentors', 'My sessions', 'My wallet', 'History']);
     await expect(nav.getByRole('link', { name: 'Discover mentors' })).toHaveAttribute('aria-current', 'page');
-    for (const label of ['My wallet', 'History', 'Profile']) {
+    for (const label of ['Profile']) {
       await expect(nav.locator('[aria-disabled="true"]', { hasText: label })).toContainText('Soon');
     }
   });

@@ -16,8 +16,8 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
   mentee: [
     { label: 'Discover mentors', href: '/mentors', icon: 'compass', status: 'ready' },
     { label: 'My sessions', href: '/sessions', icon: 'calendar', status: 'ready' },
-    { label: 'My wallet', href: '/wallet', icon: 'wallet', status: 'upcoming', story: 'US-17' },
-    { label: 'History', href: '/wallet/history', icon: 'history', status: 'upcoming', story: 'US-17' },
+    { label: 'My wallet', href: '/wallet', icon: 'wallet', status: 'ready' },
+    { label: 'History', href: '/wallet/history', icon: 'history', status: 'ready' },
     { label: 'Profile', href: '/profile', icon: 'user', status: 'upcoming' },
   ],
   mentor: [

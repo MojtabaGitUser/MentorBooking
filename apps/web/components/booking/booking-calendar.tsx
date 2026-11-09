@@ -277,7 +277,7 @@ export function BookingCalendar({
             </dl>
             {!credits && !retry && (
               <p className="text-sm text-muted-foreground">
-                You need one spendable credit before you can book.
+                You need one spendable credit before you can book. <Link className="underline" href="/wallet">Open my wallet</Link>
               </p>
             )}
             {(message || (retry && !busy)) && (
