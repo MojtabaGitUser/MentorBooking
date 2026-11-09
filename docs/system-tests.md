@@ -42,6 +42,8 @@ Delivery assertions cover the database outbox and delivery records. External mes
 
 On PostgreSQL 17.11 and Node 24.14.1, 51 unit tests, 152 integration tests and 34 Chromium tests passed. The booking, wallet, cancellation, mentor/admin, payment, lifecycle and worker suites passed three runs each on fresh databases (122 tests per round). The admin race fixture starts with enough credits for a revoke to succeed even when it wins the first lock. The auth suite now exercises reseeding in a disposable database.
 
+The complete command set was rerun for US-20 delivery on 2026-11-08: 51 unit, 152 integration, and 34 Chromium tests passed; lint, sequential typecheck, production build, Compose configuration/build/startup/health, migrations, repeatable seed, and `npm audit --omit=dev` also passed. Typecheck and `next build` both write `.next`, so quality commands are intentionally listed sequentially rather than run in parallel.
+
 Node's built-in unit-test coverage reported 66.33% of lines and 87.11% of branches in the loaded compiled API modules (dependencies excluded), and 100% of lines and 91.03% of branches in the four loaded web utility modules. The browser, database and worker-process runs are reported by scenario and assertion. These unit percentages cover only the modules loaded by their respective unit suites.
 
 To reproduce the unit coverage after building the API, run these commands from the indicated workspace.
