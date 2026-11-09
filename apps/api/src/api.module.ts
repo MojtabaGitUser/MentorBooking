@@ -21,6 +21,8 @@ import { ScheduleService } from './mentor/schedule.service';
 
 import { SlotsController } from './mentor/slots.controller';
 import { SlotsService } from './mentor/slots.service';
+import { DirectoryController } from './mentor/directory.controller';
+import { DirectoryService } from './mentor/directory.service';
 
 import { BookingController } from './sessions/booking.controller';
 import { BookingService } from './sessions/booking.service';
@@ -42,8 +44,8 @@ import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
 
 @Module({
-  controllers: [SessionLifecycleController, MentorSessionListController, AdminController, MentorCancellationController, CancellationController, BookingController, SlotsController, ScheduleController, HealthController, MeController, WalletController, PaymentsController],
-  providers: [WorkerService, ReminderService, OutboxDispatcher, NotificationSink, LifecycleService, SessionListService, AdminService, MentorCancellationService, CancellationService, BookingService, SlotsService, ScheduleService, RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
+  controllers: [DirectoryController, SessionLifecycleController, MentorSessionListController, AdminController, MentorCancellationController, CancellationController, BookingController, SlotsController, ScheduleController, HealthController, MeController, WalletController, PaymentsController],
+  providers: [DirectoryService, WorkerService, ReminderService, OutboxDispatcher, NotificationSink, LifecycleService, SessionListService, AdminService, MentorCancellationService, CancellationService, BookingService, SlotsService, ScheduleService, RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
     provide: Pool,
     useFactory: () => new Pool({
       ...connectionOptions(),

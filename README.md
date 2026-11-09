@@ -1,6 +1,6 @@
 # Mentor Booking
 
-US-01 provides a runnable NestJS, Next.js and PostgreSQL development stack. The home page reports the live API and database status.
+US-01 provides a runnable NestJS, Next.js and PostgreSQL development stack. The home page is the demo account picker and also reports the live API and database status.
 
 ## Start
 
@@ -13,7 +13,7 @@ docker compose up --build -d --wait
 docker compose exec -T api node infra/db/bootstrap.mjs seed
 ```
 
-The second command is safe to repeat. With npm installed, `npm run seed` is the same command. Seed inserts five fixed users and two mentor profiles in one transaction. Re-running seed preserves existing rows and their creation timestamps.
+The second command is safe to repeat. With npm installed, `npm run seed` is the same command. Seed inserts eight fixed users (five mentors with profiles, two mentees, one admin), mentor bios and weekly hours for the three newer mentors in one transaction. All personas are fictional. Re-running seed preserves existing rows and their creation timestamps.
 
 Compose runs the privileged `migrate` service after PostgreSQL is ready and starts the API with the restricted `mentor_app` login after migrations succeed. Existing US-01 installations can run the same startup command against their existing volumes. Inspect migration results with `docker compose logs migrate` or rerun with `docker compose run --rm migrate`. Numbered SQL files run in one transaction under the existing bootstrap lock. See the [schema and ERD](docs/design.md).
 
@@ -40,6 +40,9 @@ curl -H "X-User-Id: 00000000-0000-4000-8000-000000000003" http://localhost:3001/
 | `00000000-0000-4000-8000-000000000003` | mentee | Alex Chen | America/Vancouver |
 | `00000000-0000-4000-8000-000000000004` | mentee | Sam Rivera | America/New_York |
 | `00000000-0000-4000-8000-000000000005` | admin | Demo Admin | UTC |
+| `00000000-0000-4000-8000-000000000006` | mentor | Maya Okafor | Africa/Lagos |
+| `00000000-0000-4000-8000-000000000007` | mentor | Lucas Martins | America/Sao_Paulo |
+| `00000000-0000-4000-8000-000000000008` | mentor | Hana Sato | Asia/Tokyo |
 
 ## Development and verification
 
@@ -274,3 +277,26 @@ Each tick, in order:
 A reminder (`reminder:<sessionId>:T-1h`, to the mentee) is queued once for each still-scheduled session from 60 elapsed minutes before its start until the start, so late bookings and a worker that was down still get one. Delivery writes one row per event to `notification_deliveries` and logs it; that is the notification channel for this project. Reminders for sessions cancelled or started by delivery time are marked `SUPPRESSED`. Failed deliveries are retried with backoff (5 s doubling to 5 min) and parked as `FAILED` after 8 attempts (`outbox_events.outcome`, `last_error`). Running several workers is safe.
 
 Run `npm test` and `npm run test:worker` (also in `npm run test:integration`). Rebuild the images so migration `0006` and the worker build are included.
+
+### Mentor directory and web UI (US-04)
+
+Open [http://localhost:3000](http://localhost:3000) and choose a demo account. The choice is kept in the httpOnly cookie `mb_demo_user` (8 hours); Next.js server components send it to the API as `X-User-Id` through `API_BASE_URL` (server-side only, default `http://api:3001` in Compose). The browser never calls the API and no secret reaches client code; the API still authorizes every request, and the UI's role checks only choose what to show. "Switch demo account" and "Sign out" are in the account menu.
+
+| Route | Role | Content |
+|---|---|---|
+| `/` | anyone | Account picker and service status |
+| `/mentors` | mentee | Directory with search and timezone filter |
+| `/mentors/[id]` | mentee | Profile: bio, weekly hours, next openings, booking placeholder |
+| `/mentor`, `/admin` | mentor, admin | Workspace overview of the upcoming features |
+
+API (mentee only; mentors and admins get 403):
+
+- `GET /mentors?q=&timezone=` returns `{items, total, filters, facets:{timezones}}`. Each item has only public fields: `id, displayName, timezone, bio, availableWeekdays`. `q` (≤ 100 characters) matches name or bio, case-insensitively, with `%` and `_` taken literally; `timezone` must be a valid IANA zone. Invalid parameters return 422 `INVALID_DIRECTORY_QUERY`. Results are ordered by name, then ID; facets cover the whole directory.
+- `GET /mentors/:id` adds `weeklyAvailability` (`weekday, startLocal, endLocal` in the mentor's zone). An unknown or malformed ID returns 404 `MENTOR_NOT_FOUND`.
+- The profile's "Upcoming openings" reuses `GET /mentors/:id/slots` (US-06) for the mentor's next 14 days and shows the first six in the viewer's timezone.
+
+Search and filter state lives in the URL, so links are shareable and back/forward works; typing is debounced (300 ms) and results re-render without a page reload. Light and dark themes follow the system until toggled (kept in `localStorage`, applied before paint). The desktop sidebar collapses to icons (cookie `mb_sidebar`); below 1024 px it becomes a drawer. Layouts are checked at 375, 768, 1280 and 1440 px.
+
+Tests: `npm test` (API and web unit tests), `npm run test:directory` (also in `npm run test:integration`) and `npm run test:e2e`. The browser suite needs the seeded stack. Its API-outage case runs only when `E2E_API_DOWN_URL` points at a second web server whose `API_BASE_URL` is unreachable, for example `cd apps/web && API_BASE_URL=http://127.0.0.1:9 npx next start -p 3002` and `E2E_API_DOWN_URL=http://localhost:3002 npm run test:e2e`.
+
+New web dependencies: `radix-ui` (dialog, dropdown and slot primitives) and `class-variance-authority`. See [UI design](docs/design.md#web-ui-and-design-system-us-04) for tokens, components and extension points.
