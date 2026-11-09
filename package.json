@@ -29,7 +29,8 @@
     "test:lifecycle": "docker compose run --rm -T --no-deps migrate node --test apps/api/test/lifecycle.integration.mjs",
     "test:directory": "docker compose run --rm -T --no-deps migrate node --test apps/api/test/directory.integration.mjs",
     "test:worker": "docker compose run --rm -T --no-deps migrate node --test apps/api/test/worker.integration.mjs",
-    "worker:once": "docker compose exec -T api node apps/api/dist/worker/main.js --once"
+    "worker:once": "docker compose exec -T api node apps/api/dist/worker/main.js --once",
+    "test:e2e:booking": "node infra/tests/booking-browser/run.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
