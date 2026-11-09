@@ -286,7 +286,7 @@ Open [http://localhost:3000](http://localhost:3000) and choose a demo account. T
 |---|---|---|
 | `/` | anyone | Account picker and service status |
 | `/mentors` | mentee | Directory with search and timezone filter |
-| `/mentors/[id]` | mentee | Profile: bio, weekly hours, next openings, booking placeholder |
+| `/mentors/[id]` | mentee | Profile: bio, weekly hours, next openings, booking link |
 | `/mentor`, `/admin` | mentor, admin | Workspace overview of the upcoming features |
 
 API (mentee only; mentors and admins get 403):
@@ -300,3 +300,11 @@ Search and filter state lives in the URL, so links are shareable and back/forwar
 Tests: `npm test` (API and web unit tests), `npm run test:directory` (also in `npm run test:integration`) and `npm run test:e2e`. The browser suite needs the seeded stack. Its API-outage case runs only when `E2E_API_DOWN_URL` points at a second web server whose `API_BASE_URL` is unreachable, for example `cd apps/web && API_BASE_URL=http://127.0.0.1:9 npx next start -p 3002` and `E2E_API_DOWN_URL=http://localhost:3002 npm run test:e2e`.
 
 New web dependencies: `radix-ui` (dialog, dropdown and slot primitives) and `class-variance-authority`. See [UI design](docs/design.md#web-ui-and-design-system-us-04) for tokens, components and extension points.
+
+### Mentee booking and sessions (US-16)
+
+From a mentor profile, choose **Book a session**, a day and an opening. The weekly calendar at `/mentors/[id]/book?week=YYYY-MM-DD` uses the signed-in mentee's timezone. Review the mentor, both local endpoints, the one-credit cost and the wallet's current spendable balance before confirming. The remaining balance is an estimate. If another booking takes the time or the last credit, the page reloads the slots and wallet. After a connection failure, use **Retry confirmation** in the same tab to recover the original booking.
+
+Open **My sessions** at `/sessions` for upcoming sessions or `/sessions?status=past` for history. Join records attendance during the API's join window. **Cancel session** first requests a refund preview. More than 24 hours gives one credit back. Exactly 24 hours or less gives zero, and cancellation closes at session start. A changed outcome stays in the dialog for a second explicit confirmation.
+
+Run `npm test`, `npm run test:integration` and `npm run test:e2e` on the seeded demo stack. After `docker compose up -d --build --wait`, run `npm run test:e2e:booking` for financial browser tests. It starts a dedicated API and web instance against a disposable PostgreSQL database and saves screenshots under `test-results/booking`. To run the directory suite on fresh seed data, including the outage case, use `npm run test:e2e:booking -- --directory`. US-17 can reuse the authenticated wallet read and session views when adding purchases and ledger history.

@@ -157,8 +157,14 @@ Known limitations: a tick is sequential, so throughput scales by adding workers;
 **Data and states.** Pages are server components that call the API with `lib/api.ts` (no cache, 5 s timeout, errors normalized to `ApiError`). Every data view has a skeleton (`loading.tsx`), an empty state, a distinct "no results" state, a not-found page and an error state that distinguishes 403, an unreachable API and other failures and offers a retry. Mentor bios are rendered as plain text (no HTML), and cards show only fields the API returns: no ratings, prices or credentials are invented. Pure helpers (`lib/format.ts`) cover initials, timezone labels, URL state and view selection and are unit-tested.
 
 **Extension points.**
-- US-16 (booking UI): replace the disabled "Book a session" button in the profile's booking panel; the openings list already calls the slots API and formats times in the viewer's zone. Mark "My sessions" as `ready` in `lib/navigation.ts`.
+- US-16 connects the profile and My sessions navigation to the [mentee booking and cancellation UI](#mentee-booking-and-cancellation-ui-us-16).
 - US-17 (wallet UI): reuse `Card`, `Badge` (`success`, `warning`, `destructive` for lot and expiry states) and the tokens; "My wallet" and "History" are already in the mentee navigation.
 - US-18 (mentor and admin views): build on `PageHeader`, `Card`, `EmptyState`, `ApiErrorState` and replace `WorkspaceOverview` on `/mentor` and `/admin`.
 
 **Known limitations.** Demo authentication is a cookie holding a seeded user ID, not real sign-in. The directory is not paginated (sized for the seed). Timezone offset labels come from the platform's time zone data.
+
+### Mentee booking and cancellation UI (US-16)
+
+The booking page fetches one week at a time, requesting two extra mentor-calendar dates on either side to cover the international date line. It groups returned slots by the API's viewer-local start date. The session length and request identity use the original UTC instants. Display includes both UTC offsets when a session crosses a clock change.
+
+Next server actions forward the session cookie's identity through the existing API client. The browser saves an unresolved booking intent (mentor, slot, UUID key scoped to the account and tab) before submitting. A lost response or a page reload can replay that same key, including after the wallet is empty or the slot disappears. Only the booking API receipt confirms the transaction. Sessions, slots and wallet reads bypass caches, and successful mutations refresh the affected views. The cancellation dialog submits only the displayed expectedRefundableCredits. A policy conflict replaces the preview with the server's current outcome and requires another click. The ledger, policy clock and attendance decisions remain in Nest.

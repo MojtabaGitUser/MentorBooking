@@ -1,4 +1,4 @@
-import { CalendarClock, CalendarDays, Clock, Globe, Info } from 'lucide-react';
+import { CalendarClock, CalendarDays, Clock, Globe } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 // Next openings from the existing slot preview API (mentor's calendar, next 14 days), shown in the
-// viewer's timezone. A preview only: booking re-checks everything (US-11) and ships in US-16.
+// viewer's timezone. Booking rechecks availability and credit under the US-11 transaction locks.
 async function upcomingOpenings(profile: MentorProfile) {
   const from = zoneDate(profile.timezone, new Date());
   try {
@@ -134,10 +134,7 @@ export default async function MentorProfilePage({ params }: Params) {
                   </ul>
                 ) : <p className="text-sm text-muted-foreground">No open slots in the next two weeks.</p>
               ) : <p role="alert" className="text-sm text-destructive">Openings could not be loaded right now ({openings.error}).</p>}
-              <Button className="mt-5 w-full" disabled aria-describedby="booking-note">Book a session</Button>
-              <p id="booking-note" className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-                <Info className="mt-px size-3.5 shrink-0" aria-hidden />Online booking is coming in the next release. Each session costs one credit.
-              </p>
+              <Button asChild className="mt-5 w-full"><Link href={`/mentors/${profile.id}/book`}>Book a session</Link></Button>
             </CardContent>
           </Card>
         </aside>

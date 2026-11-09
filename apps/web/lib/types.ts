@@ -32,3 +32,21 @@ export interface SlotPreview {
   viewerTimezone: string;
   slots: { startsAt: string; endsAt: string; localStartsAt: string; localEndsAt: string }[];
 }
+
+export interface Session {
+  sessionId: string;
+  mentor: Pick<MentorSummary, 'id' | 'displayName' | 'timezone'>;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  joinedMenteeAt: string | null;
+  cancelledBy: 'mentor' | 'mentee' | null;
+}
+
+export interface RefundPreview {
+  startsAt: string;
+  sessionId: string;
+  eligible: boolean;
+  refundableCredits: 0 | 1;
+  reason: string;
+}

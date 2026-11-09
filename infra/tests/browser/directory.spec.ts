@@ -67,7 +67,7 @@ test.describe('mentor directory (mentee)', () => {
     await expect(cards(page)).toHaveText([/Lucas Martins/]);
   });
 
-  test('profile shows bio, weekly hours, openings in the viewer timezone and a disabled booking placeholder', async ({ page }) => {
+  test('profile shows bio, weekly hours, openings in the viewer timezone and the booking link', async ({ page }) => {
     await cards(page).filter({ hasText: 'Maya Okafor' }).getByRole('link', { name: /View profile/ }).click();
     await expect(page).toHaveURL(`/mentors/${MAYA}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Maya Okafor' })).toBeVisible();
@@ -77,7 +77,7 @@ test.describe('mentor directory (mentee)', () => {
     await expect(page.getByRole('row', { name: /Wednesday/ })).toContainText('14:00–17:00');
     const panel = page.getByTestId('booking-panel');
     await expect(panel).toContainText('shown in your timezone (Vancouver)');
-    await expect(panel.getByRole('button', { name: 'Book a session' })).toBeDisabled();
+    await expect(panel.getByRole('link', { name: 'Book a session' })).toHaveAttribute('href', '/mentors/'+MAYA+'/book');
     await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Mentors' }).click();
     await expect(page).toHaveURL(/\/mentors$/);
   });
@@ -90,11 +90,11 @@ test.describe('mentor directory (mentee)', () => {
     }
   });
 
-  test('mentee navigation: one live item, the rest clearly upcoming and not links', async ({ page }) => {
+  test('mentee navigation: live booking and directory items, the rest clearly upcoming and not links', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'Main' });
-    await expect(nav.getByRole('link')).toHaveText(['Discover mentors']);
+    await expect(nav.getByRole('link')).toHaveText(['Discover mentors', 'My sessions']);
     await expect(nav.getByRole('link', { name: 'Discover mentors' })).toHaveAttribute('aria-current', 'page');
-    for (const label of ['My sessions', 'My wallet', 'History', 'Profile']) {
+    for (const label of ['My wallet', 'History', 'Profile']) {
       await expect(nav.locator('[aria-disabled="true"]', { hasText: label })).toContainText('Soon');
     }
   });
