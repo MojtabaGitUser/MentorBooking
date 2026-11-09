@@ -19,6 +19,7 @@ export interface CreditMovement {
   expiresAt: string | null;
 }
 export interface LedgerRow extends CreditMovement {
+  adjustedBy?: string | null;
   createdAt: string;
   reason: string | null;
   sessionId: string | null;

@@ -35,7 +35,7 @@ export async function apiGet<T>(path: string, options: { userId?: string | null 
 }
 
 export async function apiRequest<T>(path: string, options: {
-  userId?: string | null; method?: 'POST'; body?: unknown; key?: string;
+  userId?: string | null; method?: 'POST' | 'PATCH' | 'DELETE'; body?: unknown; key?: string;
 } = {}): Promise<T> {
   const userId = options.userId === undefined ? await sessionUserId() : options.userId;
   let response: Response;
@@ -55,6 +55,7 @@ export async function apiRequest<T>(path: string, options: {
   if (!response.ok) {
     throw new ApiError(response.status, body?.code ?? `HTTP_${response.status}`, body?.message ?? 'The request failed.', body?.details);
   }
+  if (response.status === 204 && options.method === 'DELETE') return undefined as T;
   if (body === null) throw new ApiError(502, 'INVALID_RESPONSE', 'The service response could not be verified.');
   return body as T;
 }

@@ -47,6 +47,7 @@ export function Ledger({ rows, zone }: { rows: LedgerRow[]; zone: string }) {
                 Session: row.sessionId,
                 Payment: row.paymentId,
                 Adjustment: row.adjustmentId,
+                Administrator: row.adjustedBy,
               })
                 .filter(([, v]) => v)
                 .map(([k, v]) => (

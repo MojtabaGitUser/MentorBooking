@@ -184,7 +184,7 @@ test.describe('authentication and roles', () => {
     await signInAs(page, 'Amelia Reed');
     await expect(page).toHaveURL(/\/mentor$/);
     const nav = page.getByRole('navigation', { name: 'Main' });
-    await expect(nav.getByRole('link')).toHaveText(['Dashboard']);
+    await expect(nav.getByRole('link')).toHaveText(['Dashboard', 'My sessions', 'Availability']);
     await expect(nav).toContainText('Availability');
     await expect(nav).not.toContainText('Discover mentors');
     await page.goto('/mentors');

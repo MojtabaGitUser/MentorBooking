@@ -318,3 +318,11 @@ Choose **Buy 4 credits** and confirm to create a pending demo order. Expand **Co
 In **My sessions → Past**, expand **Attendance & credit details** to see both join records, the original booking debit, and any posted refunds or no-show rollover award. Dates and times use the saved viewer timezone.
 
 Run `npm test`, `npm run test:integration`, and, with the rebuilt Compose stack, `npm run test:e2e:booking -- --workers=1` for the isolated booking and wallet browser suites. Use `npm run test:e2e:booking -- --directory` for directory and shell regression tests.
+
+### Mentor and admin dashboards (US-18)
+
+Sign in with a mentor account and open `/mentor`. **My sessions** shows upcoming and past sessions in the mentor's timezone. Join records attendance from five minutes before the start until the end. Cancelling a scheduled or in-progress session refunds one credit, with an optional reason. **Availability** at `/mentor/availability` manages recurring weekly windows and upcoming or ongoing blockouts. Enter weekly times in local hours. For a blockout, enter both local timestamps with explicit offsets, for example `2030-10-27T01:30:00+01:00` in London. The offset distinguishes repeated hours. A booked-session conflict leaves the existing blockout intact.
+
+Sign in as Demo Admin and open `/admin`. Search by partial name or exact user ID, then select a user. Search shows up to 25 matches. The ledger pages show 20 entries at a time. Expand transaction details for references and the administrator ID. For a mentee, choose Grant or Revoke, enter 1–1000 credits and a reason, review the signed amount, then confirm. A confirmed change returns an audit receipt. If the response is lost, reopen the same target in the same tab and choose **Retry saved adjustment**. The same key and payload recover the receipt across reloads. Closing the tab clears its retry storage; inspect the ledger before starting another adjustment.
+
+Run `npm test` and `npm run test:integration` for unit and database checks. After `docker compose up -d --build --wait`, run `npm run test:e2e:booking -- --workers=1` and `npm run test:e2e:booking -- --directory` for isolated browser tests.
