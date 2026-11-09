@@ -252,3 +252,25 @@ Run `npm test` for the policy and validation unit tests and `npm run test:mentor
 `GET /sessions/me?status=upcoming|past` (mentee) and `GET /mentor/sessions?status=upcoming|past` (mentor) list the caller's own sessions with the counterpart's name and timezone, UTC times, join timestamps and `cancelledBy`. Upcoming is `scheduled` or `in_progress` (soonest first); past is every terminal status (latest first).
 
 Lifecycle transitions have no HTTP route. `LifecycleService` (`startDue`, `resolveDue`, `resolveSession`) is the transactional API for the US-15 worker. At end + 5 minutes a session resolves from its join timestamps: both joined → `completed`; only the mentor → `no_show_mentee` (credit kept); only the mentee → `no_show_mentor` (one new rollover credit valid 30 days); nobody → `no_show_mentee`. Run `npm test` and `npm run test:lifecycle` (also in `npm run test:integration`).
+
+### Background worker (US-15)
+
+`docker compose up -d` also starts the `worker` service: the API image running `node apps/api/dist/worker/main.js` as a separate process (the API never runs jobs, and no HTTP route triggers them). Stop or restart it independently with `docker compose stop worker` / `docker compose restart worker`; on SIGTERM or SIGINT it finishes the current tick and exits 0 (30 s grace). `npm run worker:once` runs a single tick in the API container and prints its report. Logs: `docker compose logs -f worker`.
+
+| Variable | Default | Allowed | Meaning |
+|---|---|---|---|
+| `WORKER_POLL_INTERVAL_MS` | 5000 | 250–3600000 | Pause after each tick |
+| `WORKER_BATCH_SIZE` | 100 | 1–1000 | Maximum items per job per tick |
+
+Invalid values stop the worker at startup with exit code 2 and a message naming the variable.
+
+Each tick, in order:
+1. Start due sessions.
+2. Resolve sessions at end + 5 minutes (completed or no-show, with the mentor no-show rollover).
+3. Expire unspent rollover credit.
+4. Queue reminders.
+5. Deliver outbox events.
+
+A reminder (`reminder:<sessionId>:T-1h`, to the mentee) is queued once for each still-scheduled session from 60 elapsed minutes before its start until the start, so late bookings and a worker that was down still get one. Delivery writes one row per event to `notification_deliveries` and logs it; that is the notification channel for this project. Reminders for sessions cancelled or started by delivery time are marked `SUPPRESSED`. Failed deliveries are retried with backoff (5 s doubling to 5 min) and parked as `FAILED` after 8 attempts (`outbox_events.outcome`, `last_error`). Running several workers is safe.
+
+Run `npm test` and `npm run test:worker` (also in `npm run test:integration`). Rebuild the images so migration `0006` and the worker build are included.

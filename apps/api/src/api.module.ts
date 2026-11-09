@@ -33,12 +33,17 @@ import { MentorSessionListController, SessionLifecycleController } from './sessi
 import { LifecycleService } from './sessions/lifecycle.service';
 import { SessionListService } from './sessions/session-list.service';
 
+import { NotificationSink } from './worker/notification-sink';
+import { OutboxDispatcher } from './worker/outbox-dispatcher.service';
+import { ReminderService } from './worker/reminder.service';
+import { WorkerService } from './worker/worker.service';
+
 import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
 
 @Module({
   controllers: [SessionLifecycleController, MentorSessionListController, AdminController, MentorCancellationController, CancellationController, BookingController, SlotsController, ScheduleController, HealthController, MeController, WalletController, PaymentsController],
-  providers: [LifecycleService, SessionListService, AdminService, MentorCancellationService, CancellationService, BookingService, SlotsService, ScheduleService, RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
+  providers: [WorkerService, ReminderService, OutboxDispatcher, NotificationSink, LifecycleService, SessionListService, AdminService, MentorCancellationService, CancellationService, BookingService, SlotsService, ScheduleService, RolloverService, PaymentsService, LedgerService, WalletService, { provide: APP_GUARD, useClass: DemoAuthGuard }, {
     provide: Pool,
     useFactory: () => new Pool({
       ...connectionOptions(),
