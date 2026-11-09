@@ -5,6 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { Controller, Get, Module, Req } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import pg from 'pg';
+import { randomUUID } from 'node:crypto';
+import { connectionOptions } from '../../../infra/db/config.cjs';
 import { ApiModule } from '../dist/api.module.js';
 import { requireResourceAccess, Roles } from '../dist/auth/access.js';
 
@@ -44,15 +46,32 @@ Module({ imports: [ApiModule], controllers: [Probe] })(Harness);
 let app;
 let base;
 let pool;
+const database = 'auth_test_' + randomUUID().replaceAll('-', '');
+const owner = new pg.Client({ ...connectionOptions(), database: 'postgres' });
+let created = false;
 
 before(async () => {
-  assert.equal(process.env.DEMO_AUTH_ENABLED, 'true', 'Enable demo auth for the documented local test stack');
+  assert.ok(!process.env.DATABASE_URL && !process.env.EXTERNAL_API_CONFIGURED, 'Use bundled PostgreSQL for auth tests');
+  await owner.connect();
+  await owner.query('CREATE DATABASE ' + database);
+  created = true;
+  process.env.PGDATABASE = database;
+  execFileSync(process.execPath, ['infra/db/bootstrap.mjs', 'migrate']);
+  process.env.PGUSER = 'mentor_app';
+  process.env.DB_PASSWORD_FILE = process.env.RUNTIME_PASSWORD_FILE;
+  process.env.DEMO_AUTH_ENABLED = 'true';
+  execFileSync(process.execPath, ['infra/db/bootstrap.mjs', 'seed']);
   app = await NestFactory.create(Harness, { logger: false });
   await app.listen(0, '127.0.0.1');
   base = await app.getUrl();
   pool = app.get(pg.Pool);
 });
-after(async () => { await app?.close(); });
+after(async () => {
+  try {
+    await app?.close();
+    if (created) await owner.query('DROP DATABASE ' + database);
+  } finally { await owner.end(); }
+});
 
 function request(path, user, extraHeaders = {}) {
   return fetch(base + path, { headers: { ...(user && { 'X-User-Id': user.id }), ...extraHeaders } });

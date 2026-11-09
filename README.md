@@ -17,7 +17,7 @@ The second command is safe to repeat. With npm installed, `npm run seed` is the 
 
 Compose runs the privileged `migrate` service after PostgreSQL is ready and starts the API with the restricted `mentor_app` login after migrations succeed. Existing US-01 installations can run the same startup command against their existing volumes. Inspect migration results with `docker compose logs migrate` or rerun with `docker compose run --rm migrate`. Numbered SQL files run in one transaction under the existing bootstrap lock. See the [schema and ERD](docs/design.md).
 
-`npm run test:schema` tests the bundled PostgreSQL server through the migration container. Each run creates a uniquely named temporary database, runs the migrations, connects as the API login, and removes only that database afterward. `npm run test:integration` includes these tests, the live health check and the demo authentication suite (`npm run test:auth`). The auth suite seeds the local demo accounts and exercises test-only routes inside a separate Nest instance. Rebuild the images after changing SQL or schema tests.
+`npm run test:schema` tests the bundled PostgreSQL server through the migration container. Each run creates a uniquely named temporary database, runs the migrations, connects as the API login, and removes only that database afterward. `npm run test:integration` includes these tests, the live health check and the demo authentication suite (`npm run test:auth`). The auth suite migrates and seeds its own temporary database, then exercises test-only routes in a separate Nest instance. Rebuild the images after changing SQL or schema tests.
 
 Open the [status page](http://localhost:3000) or [API health endpoint](http://localhost:3001/health). The endpoint returns HTTP 200 with the application version and database status after a successful database query, or HTTP 503 when the query fails.
 
@@ -56,7 +56,7 @@ npm run build
 npm test
 ```
 
-With the Compose stack running, exercise the live API and the status page in Chromium.
+With the Compose stack running, run the PostgreSQL suites and all three isolated Chromium suites.
 
 ```sh
 npm run test:integration
@@ -297,7 +297,7 @@ API (mentee only; mentors and admins get 403):
 
 Search and filter state lives in the URL, so links are shareable and back/forward works; typing is debounced (300 ms) and results re-render without a page reload. Light and dark themes follow the system until toggled (kept in `localStorage`, applied before paint). The desktop sidebar collapses to icons (cookie `mb_sidebar`); below 1024 px it becomes a drawer. Layouts are checked at 375, 768, 1280 and 1440 px.
 
-Tests: `npm test` (API and web unit tests), `npm run test:directory` (also in `npm run test:integration`) and `npm run test:e2e`. The browser suite needs the seeded stack. Its API-outage case runs only when `E2E_API_DOWN_URL` points at a second web server whose `API_BASE_URL` is unreachable, for example `cd apps/web && API_BASE_URL=http://127.0.0.1:9 npx next start -p 3002` and `E2E_API_DOWN_URL=http://localhost:3002 npm run test:e2e`.
+Tests: `npm test` (API and web unit tests), `npm run test:directory` (also in `npm run test:integration`) and `npm run test:e2e`. The E2E runner provisions fresh seeds and a second web process for the API-outage case. See [system verification](docs/system-tests.md) for focused commands.
 
 New web dependencies: `radix-ui` (dialog, dropdown and slot primitives) and `class-variance-authority`. See [UI design](docs/design.md#web-ui-and-design-system-us-04) for tokens, components and extension points.
 

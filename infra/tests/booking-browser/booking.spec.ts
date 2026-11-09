@@ -12,13 +12,18 @@ test.use({ timezoneId: 'Asia/Tokyo', viewport: { width: 1280, height: 900 } });
 test('profile to booking, lost receipt replay, sessions, cancellation and one refund', async ({
   page,
 }, info) => {
-  const id = await user(1);
-  await enter(page, id, '/mentors/' + mentor);
+  const id = '00000000-0000-4000-8000-000000000003';
+  await adjust(id, 1);
+  await page.goto('/?switch=1');
+  await page.getByRole('button', { name: 'Continue as Alex Chen' }).click();
+  await page.getByLabel('Search').fill('Maya');
+  await expect(page.getByTestId('mentor-card')).toHaveCount(1);
+  await page.getByRole('link', { name: 'View profile of Maya Okafor' }).click();
   await shot(page, info, 'profile');
   await page.getByRole('link', { name: 'Book a session' }).click();
   await expect(page.getByRole('heading', { name: 'Book a session' })).toBeVisible();
   await page.goto(path);
-  await expect(page.getByText('Times in America/Los_Angeles', { exact: true })).toBeVisible();
+  await expect(page.getByText('Times in America/Vancouver', { exact: true })).toBeVisible();
   await shot(page, info, 'available');
   await times(page).first().click();
   await expect(page.getByText('Estimated after booking')).toBeVisible();
@@ -29,9 +34,7 @@ test('profile to booking, lost receipt replay, sessions, cancellation and one re
     await route.fetch();
     await route.abort('failed');
   });
-  await confirm(page)
-    .dblclick({ delay: 5 })
-    .catch(() => {});
+  await confirm(page).click();
   const retry = page.getByRole('button', { name: 'Retry confirmation' });
   await expect(retry).toBeVisible();
   await page.unroute('**/book?week=*');
@@ -55,6 +58,16 @@ test('profile to booking, lost receipt replay, sessions, cancellation and one re
   expect((await api('/wallet/me', id)).totalSpendable).toBe(1);
   await page.getByRole('link', { name: 'Past', exact: true }).click();
   await expect(page.getByText('Cancelled by you')).toBeVisible();
+  await page.goto('/wallet');
+  await expect(page.getByTestId('spendable')).toHaveText('1');
+  await page.getByRole('link', { name: 'View transaction history' }).click();
+  for (const [label, delta] of [['Session booked', '-1 credit'], ['Cancellation refund', '+1 credit']]) {
+    const movement = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: label, exact: true }) });
+    await expect(movement).toHaveCount(1);
+    await expect(movement).toContainText(delta);
+    await movement.getByText('Transaction details').click();
+    await expect(movement).toContainText(session.sessionId);
+  }
 });
 
 test('real races refresh unavailable slots and spendable credits; zero blocks confirmation', async ({
